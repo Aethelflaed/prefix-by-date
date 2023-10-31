@@ -90,12 +90,12 @@ mod tests {
         }
     }
 
-    fn with_config<T>(function: T)
+    fn with_config<T, R>(function: T) -> R
     where
-        T: FnOnce(),
+        T: FnOnce() -> R,
     {
         let temp = TempDir::new().unwrap();
-        with_var(
+        let result = with_var(
             "PREFIX_BY_DATE_CONFIG",
             Some(temp.path().as_os_str()),
             || {
@@ -126,10 +126,12 @@ regex = """
                     )
                     .unwrap();
 
-                function();
+                function()
             },
         );
         temp.close().unwrap();
+
+        return result;
     }
 
     #[test]
@@ -139,25 +141,25 @@ regex = """
             ..cli()
         };
 
-        with_config(|| {
-            let state = State::from(&cli).unwrap();
+        let state = with_config(|| State::from(&cli).unwrap());
 
-            assert_eq!(3, state.matchers.len());
-            assert_eq!("Predetermined date", state.matchers[0].name());
-            assert_eq!("whatsapp", state.matchers[1].name());
-            assert_eq!("cic", state.matchers[2].name());
-        });
+        assert_eq!(3, state.matchers.len());
+        assert_eq!("Predetermined date", state.matchers[0].name());
+        assert_eq!("whatsapp", state.matchers[1].name());
+        assert_eq!("cic", state.matchers[2].name());
     }
 
     #[test]
     fn time() {
-        let mut cli = cli();
-        let mut state = State::from(&cli).unwrap();
-        assert_eq!("%Y-%m-%d", state.format);
+        with_config(|| {
+            let mut cli = cli();
+            let mut state = State::from(&cli).unwrap();
+            assert_eq!("%Y-%m-%d", state.format);
 
-        cli.time = true;
-        state = State::from(&cli).unwrap();
-        assert_eq!("%Y-%m-%d %Hh%Mm%S", state.format);
+            cli.time = true;
+            state = State::from(&cli).unwrap();
+            assert_eq!("%Y-%m-%d %Hh%Mm%S", state.format);
+        })
     }
 
     #[test]
@@ -175,12 +177,10 @@ regex = """
 
     #[test]
     fn read_config() {
-        with_config(|| {
-            let state = State::from(&cli()).unwrap();
+        let state = with_config(|| State::from(&cli()).unwrap());
 
-            assert_eq!(2, state.matchers.len());
-            assert_eq!("whatsapp", state.matchers[0].name());
-            assert_eq!("cic", state.matchers[1].name());
-        });
+        assert_eq!(2, state.matchers.len());
+        assert_eq!("whatsapp", state.matchers[0].name());
+        assert_eq!("cic", state.matchers[1].name());
     }
 }
