@@ -1,0 +1,22 @@
+[cic]
+regex = """
+  (?<start>.+)
+  \\s+au\\s+
+  (?<year>\\d{4})
+  -
+  (?<month>\\d{2})
+  -
+  (?<day>\\d{2})
+  (?<end>\\.[a-z]+)
+"""
+
+[whatsapp]
+regex = """
+  (?<start>[A-Z]+)-
+  (?<year>\\d{4})
+  (?<month>\\d{2})
+  (?<day>\\d{2})
+  -
+  (?<end>.+)
+"""
+delimiter= " "
