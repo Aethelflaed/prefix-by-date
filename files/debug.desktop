@@ -2,12 +2,7 @@
 Name=Desktop actions
 Type=Service
 MimeType=application/pdf;
-Actions=splitPdf;prefixByDate;prefixByToday;
-
-[Desktop Action splitPdf]
-Name=Split pdf in one page per file
-Icon=edit-entry
-Exec=systemd-run --user /home/geoffroy/src/desktop-actions/target/debug/split-pdf -vvv %F
+Actions=prefixByDate;prefixByToday;
 
 [Desktop Action prefixByDate]
 Name=Prefix by date
