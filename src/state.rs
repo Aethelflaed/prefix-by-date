@@ -5,6 +5,7 @@ use std::boxed::Box;
 use std::path::PathBuf;
 use toml::Table;
 
+#[derive(Default)]
 pub struct State {
     pub format: String,
     pub matchers: Vec<Box<dyn Matcher>>,
@@ -12,29 +13,55 @@ pub struct State {
 
 impl State {
     pub fn from(cli: &Cli) -> std::io::Result<Self> {
-        let mut format: String = "%Y-%m-%d".into();
-        let mut matchers = Vec::<Box<dyn Matcher>>::new();
+        let mut state = State {
+            format: "%Y-%m-%d".into(),
+            ..State::default()
+        };
 
         if cli.time {
             log::debug!("Prefix by date and time");
-            format = "%Y-%m-%d %Hh%Mm%S".into();
+            state.format = "%Y-%m-%d %Hh%Mm%S".into();
         }
 
         if cli.today {
             log::debug!("Prefix by today's date");
 
-            matchers.push(Box::new(PredeterminedDate {
+            state.matchers.push(Box::new(PredeterminedDate {
                 date_time: Local::now(),
             }));
         }
 
-        read_config(&mut matchers)?;
+        state.read_config()?;
 
-        for matcher in &matchers {
+        for matcher in &state.matchers {
             log::debug!("Using matcher: {}", matcher.name());
         }
 
-        Ok(State { format, matchers })
+        Ok(state)
+    }
+
+    fn read_config(&mut self) -> std::io::Result<()> {
+        let file = config_home().join("patterns.toml");
+
+        std::fs::read_to_string(file).map(|content| {
+            content
+                .parse::<Table>()
+                .unwrap()
+                .iter()
+                .for_each(|(name, value)| {
+                    if let toml::Value::Table(table) = value {
+                        if let Some(pattern) = Pattern::deserialize(name, table) {
+                            self.add_matcher(Box::new(pattern));
+                        }
+                    }
+                });
+        })
+    }
+
+    fn add_matcher(&mut self, matcher: Box<dyn Matcher>) {
+        if !self.matchers.iter().any(|m| m.name() == matcher.name()) {
+            self.matchers.push(matcher);
+        }
     }
 }
 
@@ -45,34 +72,6 @@ fn config_home() -> PathBuf {
             .unwrap()
             .get_config_home(),
     }
-}
-
-fn read_config(matchers: &mut Vec<Box<dyn Matcher>>) -> std::io::Result<()> {
-    let file = config_home().join("patterns.toml");
-
-    std::fs::read_to_string(file).map(|content| {
-        content
-            .parse::<Table>()
-            .unwrap()
-            .iter()
-            .for_each(|(name, value)| {
-                if let toml::Value::Table(table) = value {
-                    if let Some(pattern) = Pattern::deserialize(name, table) {
-                        add_matcher(matchers, Box::new(pattern));
-                    }
-                }
-            });
-    })
-}
-
-fn add_matcher(matchers: &mut Vec<Box<dyn Matcher>>, matcher: Box<dyn Matcher>) -> bool {
-    if matchers.iter().any(|m| m.name() == matcher.name()) {
-        return false;
-    }
-
-    matchers.push(matcher);
-
-    true
 }
 
 #[cfg(test)]
@@ -183,5 +182,16 @@ regex = """
         assert_eq!(2, state.matchers.len());
         assert_eq!("whatsapp", state.matchers[0].name());
         assert_eq!("cic", state.matchers[1].name());
+    }
+
+    #[test]
+    fn add_matcher_with_same_name() {
+        let mut state = State::default();
+
+        state.add_matcher(Box::new(PredeterminedDate { date_time: Local::now() }));
+        assert_eq!(1, state.matchers.len());
+
+        state.add_matcher(Box::new(PredeterminedDate { date_time: Local::now() }));
+        assert_eq!(1, state.matchers.len());
     }
 }
