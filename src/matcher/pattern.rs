@@ -34,6 +34,10 @@ impl Pattern {
         PatternBuilder::default()
     }
 
+    pub fn deserialize(name: &str, table: &toml::Table) -> Option<Self> {
+        Self::builder().deserialize(name, table)
+    }
+
     fn replacement_from_captures(
         &self,
         captures: Captures,
@@ -104,6 +108,22 @@ impl PatternBuilder {
     pub fn delimiter(&mut self, delim: &str) -> &mut Self {
         self.delimiter = Some(delim.into());
         self
+    }
+
+    pub fn deserialize(&mut self, name: &str, table: &toml::Table) -> Option<Pattern> {
+        self.name(name);
+
+        if let Some(toml::Value::String(regex)) = table.get("regex") {
+            self.regex(regex.as_str());
+        } else {
+            return None;
+        }
+
+        if let Some(toml::Value::String(delim)) = table.get("delimiter") {
+            self.delimiter(delim.as_str());
+        }
+
+        self.build()
     }
 
     pub fn build(&self) -> Option<Pattern> {
@@ -269,5 +289,56 @@ mod tests {
         );
 
         assert_eq!(String::from(""), replacement.rest);
+    }
+
+    mod deserialize {
+        use super::*;
+        use pretty_assertions::assert_eq;
+        use toml::Table;
+
+        #[test]
+        fn empty_map() {
+            let table = Table::new();
+            assert!(Pattern::deserialize("foo", &table).is_none());
+        }
+
+        #[test]
+        fn without_regex() {
+            let mut table = Table::new();
+            table.insert("delimiter".into(), "foo".into());
+
+            assert!(Pattern::deserialize("foo", &table).is_none());
+        }
+
+        #[test]
+        fn invalid_regex() {
+            let mut table = Table::new();
+            table.insert("regex".into(), "((".into());
+
+            assert!(Pattern::deserialize("foo", &table).is_none());
+        }
+
+        #[test]
+        fn simple() {
+            let mut table = Table::new();
+            table.insert("regex".into(), ".+".into());
+
+            let pattern = Pattern::deserialize("foo", &table).unwrap();
+
+            assert_eq!("foo", pattern.name());
+            assert_eq!("", pattern.delimiter());
+        }
+
+        #[test]
+        fn with_delimiter() {
+            let mut table = Table::new();
+            table.insert("regex".into(), ".+".into());
+            table.insert("delimiter".into(), ".+".into());
+
+            let pattern = Pattern::deserialize("foo", &table).unwrap();
+
+            assert_eq!("foo", pattern.name());
+            assert_eq!(".+", pattern.delimiter());
+        }
     }
 }

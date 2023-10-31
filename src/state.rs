@@ -10,42 +10,6 @@ pub struct State {
     pub matchers: Vec<Box<dyn Matcher>>,
 }
 
-fn config_home() -> PathBuf {
-    match std::env::var("PREFIX_BY_DATE_CONFIG") {
-        Ok(val) if !val.is_empty() => PathBuf::from(val),
-        _ => xdg::BaseDirectories::with_prefix(env!("CARGO_PKG_NAME"))
-            .unwrap()
-            .get_config_home(),
-    }
-}
-
-fn read_config(matchers: &mut Vec<Box<dyn Matcher>>) -> std::io::Result<()> {
-    let file = config_home().join("patterns.toml");
-
-    std::fs::read_to_string(file).map(|content| {
-        content
-            .parse::<Table>()
-            .unwrap()
-            .iter()
-            .for_each(|(name, value)| {
-                if let toml::Value::String(regex) = &value["regex"] {
-                    let mut builder = Pattern::builder();
-                    builder.regex(regex.as_str()).name(name);
-
-                    if let Some(toml::Value::String(delim)) =
-                        &value.get("delimiter")
-                    {
-                        builder.delimiter(delim);
-                    }
-
-                    if let Some(pattern) = builder.build() {
-                        matchers.push(Box::new(pattern))
-                    }
-                }
-            });
-    })
-}
-
 impl State {
     pub fn from(cli: &Cli) -> std::io::Result<Self> {
         let mut format: String = "%Y-%m-%d".into();
@@ -72,6 +36,43 @@ impl State {
 
         Ok(State { format, matchers })
     }
+}
+
+fn config_home() -> PathBuf {
+    match std::env::var("PREFIX_BY_DATE_CONFIG") {
+        Ok(val) if !val.is_empty() => PathBuf::from(val),
+        _ => xdg::BaseDirectories::with_prefix(env!("CARGO_PKG_NAME"))
+            .unwrap()
+            .get_config_home(),
+    }
+}
+
+fn read_config(matchers: &mut Vec<Box<dyn Matcher>>) -> std::io::Result<()> {
+    let file = config_home().join("patterns.toml");
+
+    std::fs::read_to_string(file).map(|content| {
+        content
+            .parse::<Table>()
+            .unwrap()
+            .iter()
+            .for_each(|(name, value)| {
+                if let toml::Value::Table(table) = value {
+                    if let Some(pattern) = Pattern::deserialize(name, table) {
+                        add_matcher(matchers, Box::new(pattern));
+                    }
+                }
+            });
+    })
+}
+
+fn add_matcher(matchers: &mut Vec<Box<dyn Matcher>>, matcher: Box<dyn Matcher>) -> bool {
+    if matchers.iter().any(|m| m.name() == matcher.name()) {
+        return false;
+    }
+
+    matchers.push(matcher);
+
+    true
 }
 
 #[cfg(test)]
