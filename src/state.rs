@@ -44,17 +44,16 @@ impl State {
         let file = config_home().join("patterns.toml");
 
         std::fs::read_to_string(file).map(|content| {
-            content
-                .parse::<Table>()
-                .unwrap()
-                .iter()
-                .for_each(|(name, value)| {
+            content.parse::<Table>().unwrap().iter().for_each(
+                |(name, value)| {
                     if let toml::Value::Table(table) = value {
-                        if let Some(pattern) = Pattern::deserialize(name, table) {
+                        if let Some(pattern) = Pattern::deserialize(name, table)
+                        {
                             self.add_matcher(Box::new(pattern));
                         }
                     }
-                });
+                },
+            );
         })
     }
 
@@ -188,10 +187,14 @@ regex = """
     fn add_matcher_with_same_name() {
         let mut state = State::default();
 
-        state.add_matcher(Box::new(PredeterminedDate { date_time: Local::now() }));
+        state.add_matcher(Box::new(PredeterminedDate {
+            date_time: Local::now(),
+        }));
         assert_eq!(1, state.matchers.len());
 
-        state.add_matcher(Box::new(PredeterminedDate { date_time: Local::now() }));
+        state.add_matcher(Box::new(PredeterminedDate {
+            date_time: Local::now(),
+        }));
         assert_eq!(1, state.matchers.len());
     }
 }

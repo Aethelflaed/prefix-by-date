@@ -1,9 +1,9 @@
 mod cli;
 mod file;
+mod log_config;
 mod matcher;
 mod replacement;
 mod state;
-mod log_config;
 
 use cli::Cli;
 use file::prefix_file_if_possible;

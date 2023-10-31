@@ -110,7 +110,11 @@ impl PatternBuilder {
         self
     }
 
-    pub fn deserialize(&mut self, name: &str, table: &toml::Table) -> Option<Pattern> {
+    pub fn deserialize(
+        &mut self,
+        name: &str,
+        table: &toml::Table,
+    ) -> Option<Pattern> {
         self.name(name);
 
         if let Some(toml::Value::String(regex)) = table.get("regex") {
