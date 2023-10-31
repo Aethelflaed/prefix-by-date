@@ -3,7 +3,7 @@ use chrono::{DateTime, Local};
 use std::any::Any;
 use std::boxed::Box;
 
-mod pattern;
+pub mod pattern;
 pub use pattern::Pattern;
 
 /// Match a file to be renamed

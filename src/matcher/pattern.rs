@@ -91,27 +91,30 @@ impl Matcher for Pattern {
 }
 
 impl PatternBuilder {
-    pub fn regex(mut self, regex: &str) -> Self {
+    pub fn regex(&mut self, regex: &str) -> &mut Self {
         self.regex = regex.into();
         self
     }
-    pub fn name(mut self, name: &str) -> Self {
+
+    pub fn name(&mut self, name: &str) -> &mut Self {
         self.name = Some(name.into());
         self
     }
-    pub fn delimiter(mut self, delim: &str) -> Self {
+
+    pub fn delimiter(&mut self, delim: &str) -> &mut Self {
         self.delimiter = Some(delim.into());
         self
     }
-    pub fn build(self) -> Option<Pattern> {
+
+    pub fn build(&self) -> Option<Pattern> {
         RegexBuilder::new(&self.regex)
             .ignore_whitespace(true)
             .build()
             .ok()
             .map(|regex| Pattern {
                 regex,
-                name: self.name.unwrap(),
-                delimiter: self.delimiter.unwrap_or("".into()),
+                name: self.name.clone().unwrap(),
+                delimiter: self.delimiter.clone().unwrap_or("".into()),
             })
     }
 }

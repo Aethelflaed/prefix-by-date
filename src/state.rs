@@ -29,13 +29,13 @@ fn read_config(matchers: &mut Vec<Box<dyn Matcher>>) -> std::io::Result<()> {
             .iter()
             .for_each(|(name, value)| {
                 if let toml::Value::String(regex) = &value["regex"] {
-                    let mut builder =
-                        Pattern::builder().regex(regex.as_str()).name(name);
+                    let mut builder = Pattern::builder();
+                    builder.regex(regex.as_str()).name(name);
 
                     if let Some(toml::Value::String(delim)) =
                         &value.get("delimiter")
                     {
-                        builder = builder.delimiter(delim);
+                        builder.delimiter(delim);
                     }
 
                     if let Some(pattern) = builder.build() {
