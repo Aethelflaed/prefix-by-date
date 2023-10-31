@@ -5,18 +5,23 @@ use std::boxed::Box;
 use std::path::PathBuf;
 use toml::Table;
 
-#[derive(Default)]
 pub struct State {
     pub format: String,
     pub matchers: Vec<Box<dyn Matcher>>,
 }
 
+impl Default for State {
+    fn default() -> Self {
+        State {
+            format: "%Y-%m-%d".into(),
+            matchers: Vec::<Box<dyn Matcher>>::default(),
+        }
+    }
+}
+
 impl State {
     pub fn from(cli: &Cli) -> std::io::Result<Self> {
-        let mut state = State {
-            format: "%Y-%m-%d".into(),
-            ..State::default()
-        };
+        let mut state = State::default();
 
         if cli.time {
             log::debug!("Prefix by date and time");
