@@ -90,7 +90,7 @@ mod tests {
             verbose: clap_verbosity_flag::Verbosity::new(0, 0),
             today: false,
             time: false,
-            files: vec![],
+            paths: vec![],
         }
     }
 

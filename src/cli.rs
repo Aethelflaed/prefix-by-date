@@ -15,7 +15,7 @@ pub struct Cli {
     #[arg(long, action)]
     pub time: bool,
 
-    pub files: Vec<PathBuf>,
+    pub paths: Vec<PathBuf>,
 }
 
 impl Cli {

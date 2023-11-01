@@ -6,7 +6,7 @@ mod replacement;
 mod state;
 
 use cli::Cli;
-use file::prefix_file_if_possible;
+use file::Processing;
 use state::State;
 
 fn main() -> std::io::Result<()> {
@@ -16,10 +16,5 @@ fn main() -> std::io::Result<()> {
     log::set_max_level(cli.verbose.log_level_filter());
 
     let state = State::from(&cli)?;
-
-    for file in &cli.files {
-        prefix_file_if_possible(file, &state)?;
-    }
-
-    Ok(())
+    Processing::new(&state, &cli.paths).run()
 }
