@@ -3,6 +3,7 @@ mod file;
 mod log_config;
 mod matcher;
 mod replacement;
+mod reporter;
 mod state;
 
 use cli::Cli;

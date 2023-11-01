@@ -1,3 +1,4 @@
+use crate::reporter::Reporter;
 use crate::state::State;
 use std::io::{Error, ErrorKind, Result};
 use std::path::PathBuf;
@@ -9,36 +10,44 @@ pub struct Processing<'a> {
 
 impl<'a> Processing<'a> {
     pub fn new(state: &'a State, paths: &'a Vec<PathBuf>) -> Processing<'a> {
+        state.reporter.count(paths.len());
         Processing { state, paths }
     }
 
     pub fn run(&self) -> Result<()> {
         for path in self.paths {
-            log::info!("Checking path: {:?}", path);
+            self.state.reporter.processing(path);
 
-            let file = File::new(self.state, path)?;
-            file.prefix_if_possible()?;
+            let path_info = PathInfo {
+                state: self.state,
+                path,
+            };
+
+            match path_info.prefix_if_possible() {
+                Ok(_) => {
+                    self.state.reporter.processing_ok(path);
+                }
+                Err(error) => {
+                    self.state.reporter.processing_err(path, &error);
+                }
+            }
         }
 
         Ok(())
     }
 }
 
-pub struct File<'a> {
-    state: &'a State,
-    path: &'a PathBuf,
+pub struct PathInfo<'a> {
+    pub state: &'a State,
+    pub path: &'a PathBuf,
 }
 
-impl<'a> File<'a> {
-    pub fn new(state: &'a State, path: &'a PathBuf) -> Result<File<'a>> {
-        if !path.try_exists().unwrap() {
-            return Err(Error::new(ErrorKind::NotFound, "File does not exist"));
+impl<'a> PathInfo<'a> {
+    pub fn prefix_if_possible(&self) -> Result<()> {
+        if !self.path.try_exists().unwrap() {
+            return Err(Error::new(ErrorKind::NotFound, "Path does not exist"));
         }
 
-        Ok(File { state, path })
-    }
-
-    pub fn prefix_if_possible(&self) -> Result<()> {
         let file_name = self.path.file_name().unwrap().to_str().unwrap();
 
         for matcher in &self.state.matchers {

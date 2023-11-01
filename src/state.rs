@@ -1,5 +1,6 @@
 use crate::cli::Cli;
 use crate::matcher::{Matcher, Pattern, PredeterminedDate};
+use crate::reporter::{Aggregate, Log};
 use chrono::Local;
 use std::boxed::Box;
 use std::path::PathBuf;
@@ -8,6 +9,7 @@ use toml::Table;
 pub struct State {
     pub format: String,
     pub matchers: Vec<Box<dyn Matcher>>,
+    pub reporter: Aggregate,
 }
 
 impl Default for State {
@@ -15,6 +17,7 @@ impl Default for State {
         State {
             format: "%Y-%m-%d".into(),
             matchers: Vec::<Box<dyn Matcher>>::default(),
+            reporter: Aggregate::default(),
         }
     }
 }
@@ -41,6 +44,8 @@ impl State {
         for matcher in &state.matchers {
             log::debug!("Using matcher: {}", matcher.name());
         }
+
+        state.reporter.add(Box::new(Log::default()));
 
         Ok(state)
     }
