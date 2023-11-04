@@ -9,6 +9,7 @@ regex = """
   (?<day>\\d{2})
   (?<end>\\.[a-z]+)
 """
+delimiter = " "
 
 [whatsapp]
 regex = """
@@ -19,4 +20,4 @@ regex = """
   -
   (?<end>.+)
 """
-delimiter= " "
+delimiter = " "
