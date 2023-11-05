@@ -1,6 +1,11 @@
 use clap::Parser;
 use std::path::PathBuf;
 
+#[cfg(feature = "cli")]
+mod reporter;
+#[cfg(feature = "cli")]
+pub use reporter::Reporter;
+
 #[derive(Parser)]
 #[command(version)]
 pub struct Cli {
