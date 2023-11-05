@@ -5,3 +5,5 @@ install_debug: files/debug.desktop files/patterns.toml
 	mkdir -p ~/.config/prefix-by-date
 	cp files/patterns.toml ~/.config/prefix-by-date/
 
+test:
+	make -C tests
