@@ -1,6 +1,5 @@
 use crate::replacement::Replacement;
 use chrono::{DateTime, Local};
-use std::any::Any;
 use std::boxed::Box;
 
 pub mod pattern;
@@ -16,14 +15,23 @@ pub trait Matcher {
     fn name(&self) -> &str;
     /// Delimiter to place between the matched elements
     fn delimiter(&self) -> &str;
-
-    /// Convenience function to allow downcast_ref
-    fn as_any(&self) -> &dyn Any;
+    /// Format to use for the date
+    fn date_format(&self) -> &str;
 }
 
 #[derive(Clone)]
 pub struct PredeterminedDate {
     pub date_time: DateTime<Local>,
+    pub format: String,
+}
+
+impl Default for PredeterminedDate {
+    fn default() -> Self {
+        Self {
+            date_time: Local::now(),
+            format: String::from("%Y-%m-%d"),
+        }
+    }
 }
 
 impl Matcher for PredeterminedDate {
@@ -43,31 +51,52 @@ impl Matcher for PredeterminedDate {
         " "
     }
 
-    fn as_any(&self) -> &dyn Any {
-        self
+    fn date_format(&self) -> &str {
+        self.format.as_str()
+    }
+}
+
+impl PredeterminedDate {
+    pub fn new(format: &str) -> Self {
+        Self {
+            format: format.into(),
+            ..Self::default()
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::TimeZone;
     use pretty_assertions::assert_eq;
+
+    fn date_time(
+        year: i32,
+        month: u32,
+        day: u32,
+        hour: u32,
+        min: u32,
+        sec: u32,
+    ) -> DateTime<Local> {
+        Local
+            .with_ymd_and_hms(year, month, day, hour, min, sec)
+            .earliest()
+            .unwrap()
+    }
+
+    fn date(year: i32, month: u32, day: u32) -> DateTime<Local> {
+        date_time(year, month, day, 0, 0, 0)
+    }
 
     #[test]
     fn predetermined_date_matcher() {
         let matcher = PredeterminedDate {
-            date_time: Local::now(),
+            date_time: date(2023, 10, 31),
+            format: String::from("%Y-%m-%d %Hh%Mm"),
         };
 
         let replacement = matcher.check("foo").unwrap();
-        assert_eq!(String::from("foo"), replacement.rest);
-        assert_eq!(matcher.date_time, replacement.date_time);
-
-        let replacement_matcher = replacement
-            .matcher
-            .as_any()
-            .downcast_ref::<PredeterminedDate>()
-            .unwrap();
-        assert_eq!(matcher.date_time, replacement_matcher.date_time);
+        assert_eq!(String::from("2023-10-31 00h00m foo"), replacement.result());
     }
 }

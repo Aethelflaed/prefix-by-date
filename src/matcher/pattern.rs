@@ -2,21 +2,43 @@ use crate::matcher::Matcher;
 use crate::replacement::Replacement;
 use chrono::{Local, TimeZone};
 use regex::{Captures, Regex, RegexBuilder};
-use std::any::Any;
 use std::str::FromStr;
 
 #[derive(Clone)]
 pub struct Pattern {
     pub regex: Regex,
+    pub format: String,
     pub name: String,
     pub delimiter: String,
 }
 
-#[derive(Default)]
+impl Default for Pattern {
+    fn default() -> Self {
+        Self {
+            regex: Regex::new(".").unwrap(),
+            format: String::from("%Y-%m-%d"),
+            name: String::from(""),
+            delimiter: String::from(""),
+        }
+    }
+}
+
 pub struct PatternBuilder {
     pub regex: String,
+    pub format: String,
     pub name: Option<String>,
     pub delimiter: Option<String>,
+}
+
+impl Default for PatternBuilder {
+    fn default() -> Self {
+        Self {
+            regex: String::from(""),
+            format: String::from("%Y-%m-%d"),
+            name: None,
+            delimiter: None,
+        }
+    }
 }
 
 fn parse<T>(captures: &Captures, name: &str) -> Option<T>
@@ -34,8 +56,12 @@ impl Pattern {
         PatternBuilder::default()
     }
 
-    pub fn deserialize(name: &str, table: &toml::Table) -> Option<Self> {
-        Self::builder().deserialize(name, table)
+    pub fn deserialize(
+        name: &str,
+        table: &toml::Table,
+        default_format: &str,
+    ) -> Option<Self> {
+        Self::builder().deserialize(name, table, default_format)
     }
 
     fn replacement_from_captures(
@@ -89,8 +115,8 @@ impl Matcher for Pattern {
         self.delimiter.as_str()
     }
 
-    fn as_any(&self) -> &dyn Any {
-        self
+    fn date_format(&self) -> &str {
+        self.format.as_str()
     }
 }
 
@@ -110,10 +136,16 @@ impl PatternBuilder {
         self
     }
 
+    pub fn format(&mut self, format: &str) -> &mut Self {
+        self.format = format.into();
+        self
+    }
+
     pub fn deserialize(
         &mut self,
         name: &str,
         table: &toml::Table,
+        default_format: &str,
     ) -> Option<Pattern> {
         self.name(name);
 
@@ -125,6 +157,12 @@ impl PatternBuilder {
 
         if let Some(toml::Value::String(delim)) = table.get("delimiter") {
             self.delimiter(delim.as_str());
+        }
+
+        if let Some(toml::Value::String(format)) = table.get("format") {
+            self.format(format.as_str());
+        } else {
+            self.format(default_format);
         }
 
         self.build()
@@ -139,6 +177,7 @@ impl PatternBuilder {
                 regex,
                 name: self.name.clone().unwrap(),
                 delimiter: self.delimiter.clone().unwrap_or("".into()),
+                format: self.format.clone(),
             })
     }
 }
@@ -146,7 +185,6 @@ impl PatternBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::LocalResult::Single;
     use pretty_assertions::assert_eq;
 
     #[test]
@@ -157,19 +195,26 @@ mod tests {
 
     #[test]
     fn builder() {
-        let pattern =
-            Pattern::builder().regex(".+").name("foo").build().unwrap();
+        let pattern = Pattern::builder()
+            .regex(".+")
+            .name("foo")
+            .format("foo")
+            .build()
+            .unwrap();
         assert_eq!(String::from("foo"), pattern.name);
         assert_eq!(String::from(""), pattern.delimiter);
+        assert_eq!(String::from("foo"), pattern.format);
 
         let pattern2 = Pattern::builder()
             .regex(".+")
             .name("bar")
             .delimiter("-")
+            .format("%Y-%m")
             .build()
             .unwrap();
         assert_eq!(String::from("bar"), pattern2.name);
         assert_eq!(String::from("-"), pattern2.delimiter);
+        assert_eq!(String::from("%Y-%m"), pattern2.format);
     }
 
     #[test]
@@ -194,11 +239,9 @@ mod tests {
         let mut replacement = pattern.check(name).unwrap();
 
         assert_eq!(
-            Local.with_ymd_and_hms(2023, 10, 28, 0, 0, 0),
-            Single(replacement.date_time)
+            String::from("2023-10-28IMGwhatever.jpg"),
+            replacement.result()
         );
-
-        assert_eq!(String::from("IMGwhatever.jpg"), replacement.rest);
 
         // Try again with a delimiter
         pattern = Pattern::builder()
@@ -220,7 +263,10 @@ mod tests {
 
         replacement = pattern.check(name).unwrap();
 
-        assert_eq!(String::from("IMG whatever.jpg"), replacement.rest);
+        assert_eq!(
+            String::from("2023-10-28 IMG whatever.jpg"),
+            replacement.result()
+        );
 
         // Try with a non matching name
         name = "IMG-20230229-smth.jpb";
@@ -244,6 +290,7 @@ mod tests {
                 ",
             )
             .name("test")
+            .format("%Y-%m-%d %Hh%Mm%S")
             .build()
             .unwrap();
 
@@ -251,11 +298,9 @@ mod tests {
         let replacement = pattern.check(name).unwrap();
 
         assert_eq!(
-            Local.with_ymd_and_hms(2023, 10, 28, 23, 59, 59),
-            Single(replacement.date_time)
+            String::from("2023-10-28 23h59m59almost midnight.jpg"),
+            replacement.result()
         );
-
-        assert_eq!(String::from("almost midnight.jpg"), replacement.rest);
 
         // Invalid date time
         let invalid_name = "20230229-256929-whatever.jpg";
@@ -287,12 +332,7 @@ mod tests {
         let name = "skfljdlks-20231028-235959-almost midnight.jpg";
         let replacement = pattern.check(name).unwrap();
 
-        assert_eq!(
-            Local.with_ymd_and_hms(2023, 10, 28, 23, 59, 59),
-            Single(replacement.date_time)
-        );
-
-        assert_eq!(String::from(""), replacement.rest);
+        assert_eq!(String::from("2023-10-28"), replacement.result());
     }
 
     mod deserialize {
@@ -303,7 +343,7 @@ mod tests {
         #[test]
         fn empty_map() {
             let table = Table::new();
-            assert!(Pattern::deserialize("foo", &table).is_none());
+            assert!(Pattern::deserialize("foo", &table, "").is_none());
         }
 
         #[test]
@@ -311,7 +351,7 @@ mod tests {
             let mut table = Table::new();
             table.insert("delimiter".into(), "foo".into());
 
-            assert!(Pattern::deserialize("foo", &table).is_none());
+            assert!(Pattern::deserialize("foo", &table, "").is_none());
         }
 
         #[test]
@@ -319,7 +359,7 @@ mod tests {
             let mut table = Table::new();
             table.insert("regex".into(), "((".into());
 
-            assert!(Pattern::deserialize("foo", &table).is_none());
+            assert!(Pattern::deserialize("foo", &table, "").is_none());
         }
 
         #[test]
@@ -327,10 +367,22 @@ mod tests {
             let mut table = Table::new();
             table.insert("regex".into(), ".+".into());
 
-            let pattern = Pattern::deserialize("foo", &table).unwrap();
+            let pattern = Pattern::deserialize("foo", &table, "").unwrap();
 
             assert_eq!("foo", pattern.name());
             assert_eq!("", pattern.delimiter());
+        }
+
+        #[test]
+        fn with_format() {
+            let mut table = Table::new();
+            table.insert("regex".into(), ".+".into());
+            table.insert("format".into(), "%Y-%m-%d %Hh%M".into());
+
+            let pattern = Pattern::deserialize("bar", &table, "").unwrap();
+
+            assert_eq!("bar", pattern.name());
+            assert_eq!("%Y-%m-%d %Hh%M", pattern.date_format());
         }
 
         #[test]
@@ -339,7 +391,7 @@ mod tests {
             table.insert("regex".into(), ".+".into());
             table.insert("delimiter".into(), ".+".into());
 
-            let pattern = Pattern::deserialize("foo", &table).unwrap();
+            let pattern = Pattern::deserialize("foo", &table, "").unwrap();
 
             assert_eq!("foo", pattern.name());
             assert_eq!(".+", pattern.delimiter());

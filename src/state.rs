@@ -1,45 +1,35 @@
 use crate::cli::Cli;
 use crate::matcher::{Matcher, Pattern, PredeterminedDate};
 use crate::reporter::{Aggregate, Log};
-use chrono::Local;
 use std::boxed::Box;
 use std::path::PathBuf;
 use toml::Table;
 
+#[derive(Default)]
 pub struct State {
-    pub format: String,
     pub matchers: Vec<Box<dyn Matcher>>,
     pub reporter: Aggregate,
-}
-
-impl Default for State {
-    fn default() -> Self {
-        State {
-            format: "%Y-%m-%d".into(),
-            matchers: Vec::<Box<dyn Matcher>>::default(),
-            reporter: Aggregate::default(),
-        }
-    }
 }
 
 impl State {
     pub fn from(cli: &Cli) -> std::io::Result<Self> {
         let mut state = State::default();
+        let mut format = "%Y-%m-%d";
 
         if cli.time {
             log::debug!("Prefix by date and time");
-            state.format = "%Y-%m-%d %Hh%Mm%S".into();
+            format = "%Y-%m-%d %Hh%Mm%S";
         }
 
         if cli.today {
             log::debug!("Prefix by today's date");
 
-            state.matchers.push(Box::new(PredeterminedDate {
-                date_time: Local::now(),
-            }));
+            state
+                .matchers
+                .push(Box::new(PredeterminedDate::new(format)));
         }
 
-        state.read_config()?;
+        state.read_config(format)?;
 
         for matcher in &state.matchers {
             log::debug!("Using matcher: {}", matcher.name());
@@ -50,14 +40,15 @@ impl State {
         Ok(state)
     }
 
-    fn read_config(&mut self) -> std::io::Result<()> {
+    fn read_config(&mut self, default_format: &str) -> std::io::Result<()> {
         let file = config_home().join("patterns.toml");
 
         std::fs::read_to_string(file).map(|content| {
             content.parse::<Table>().unwrap().iter().for_each(
                 |(name, value)| {
                     if let toml::Value::Table(table) = value {
-                        if let Some(pattern) = Pattern::deserialize(name, table)
+                        if let Some(pattern) =
+                            Pattern::deserialize(name, table, default_format)
                         {
                             self.add_matcher(Box::new(pattern));
                         }
@@ -163,11 +154,11 @@ regex = """
         with_config(|| {
             let mut cli = cli();
             let mut state = State::from(&cli).unwrap();
-            assert_eq!("%Y-%m-%d", state.format);
+            assert_eq!("%Y-%m-%d", state.matchers[0].date_format());
 
             cli.time = true;
             state = State::from(&cli).unwrap();
-            assert_eq!("%Y-%m-%d %Hh%Mm%S", state.format);
+            assert_eq!("%Y-%m-%d %Hh%Mm%S", state.matchers[0].date_format());
         })
     }
 
@@ -186,25 +177,33 @@ regex = """
 
     #[test]
     fn read_config() {
-        let state = with_config(|| State::from(&cli()).unwrap());
+        let mut cli = cli();
+        let mut state = with_config(|| State::from(&cli).unwrap());
 
         assert_eq!(2, state.matchers.len());
         assert_eq!("whatsapp", state.matchers[0].name());
+        assert_eq!("%Y-%m-%d", state.matchers[0].date_format());
         assert_eq!("cic", state.matchers[1].name());
+        assert_eq!("%Y-%m-%d", state.matchers[1].date_format());
+
+        cli.time = true;
+        state = with_config(|| State::from(&cli).unwrap());
+
+        assert_eq!(2, state.matchers.len());
+        assert_eq!("whatsapp", state.matchers[0].name());
+        assert_eq!("%Y-%m-%d %Hh%Mm%S", state.matchers[0].date_format());
+        assert_eq!("cic", state.matchers[1].name());
+        assert_eq!("%Y-%m-%d %Hh%Mm%S", state.matchers[1].date_format());
     }
 
     #[test]
     fn add_matcher_with_same_name() {
         let mut state = State::default();
 
-        state.add_matcher(Box::new(PredeterminedDate {
-            date_time: Local::now(),
-        }));
+        state.add_matcher(Box::<PredeterminedDate>::default());
         assert_eq!(1, state.matchers.len());
 
-        state.add_matcher(Box::new(PredeterminedDate {
-            date_time: Local::now(),
-        }));
+        state.add_matcher(Box::<PredeterminedDate>::default());
         assert_eq!(1, state.matchers.len());
     }
 }

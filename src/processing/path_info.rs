@@ -20,9 +20,7 @@ impl<'a> PathInfo<'a> {
             if let Some(replacement) = matcher.check(file_name) {
                 log::debug!("Match: {}", matcher.name());
 
-                return match self
-                    .rename(replacement.result(self.state).as_str())
-                {
+                return match self.rename(replacement.result().as_str()) {
                     Ok(()) => Ok(replacement),
                     Err(error) => Err(error),
                 };

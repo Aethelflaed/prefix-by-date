@@ -18,4 +18,6 @@ pub trait Reporter {
     fn processing_err(&self, path: &Path, error: &Error);
     /// Report that processing  the path finished successfully
     fn processing_ok(&self, path: &Path, new_name: &str);
+
+    //fn confirm(&self, path: &Path, replacement: &Replacement);
 }

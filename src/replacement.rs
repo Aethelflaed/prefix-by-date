@@ -1,5 +1,4 @@
 use crate::matcher::Matcher;
-use crate::state::State;
 use chrono::{DateTime, Local};
 use std::boxed::Box;
 
@@ -10,9 +9,11 @@ pub struct Replacement {
 }
 
 impl Replacement {
-    pub fn result(&self, state: &State) -> String {
-        let mut name: String =
-            self.date_time.format(state.format.as_str()).to_string();
+    pub fn result(&self) -> String {
+        let mut name: String = self
+            .date_time
+            .format(self.matcher.date_format())
+            .to_string();
 
         if !self.rest.is_empty() {
             name.push_str(self.matcher.delimiter());
@@ -26,23 +27,25 @@ impl Replacement {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::matcher::{Matcher, Pattern};
+    use crate::matcher::Pattern;
     use chrono::TimeZone;
-    use regex::Regex;
 
-    fn matcher_with_delimiter(delim: &str) -> Box<dyn Matcher> {
-        Box::new(Pattern {
-            regex: Regex::new(".").unwrap(),
-            name: String::from(""),
-            delimiter: String::from(delim),
-        })
+    fn date_time(
+        year: i32,
+        month: u32,
+        day: u32,
+        hour: u32,
+        min: u32,
+        sec: u32,
+    ) -> DateTime<Local> {
+        Local
+            .with_ymd_and_hms(year, month, day, hour, min, sec)
+            .earliest()
+            .unwrap()
     }
 
     fn date(year: i32, month: u32, day: u32) -> DateTime<Local> {
-        Local
-            .with_ymd_and_hms(year, month, day, 0, 0, 0)
-            .earliest()
-            .unwrap()
+        date_time(year, month, day, 0, 0, 0)
     }
 
     mod result {
@@ -52,37 +55,48 @@ mod tests {
         #[test]
         fn without_rest() {
             let replacement = Replacement {
-                matcher: matcher_with_delimiter(""),
+                matcher: Box::<Pattern>::default(),
                 date_time: date(2023, 10, 25),
                 rest: String::from(""),
             };
-            let state = State::default();
-
-            assert_eq!("2023-10-25", replacement.result(&state));
+            assert_eq!("2023-10-25", replacement.result());
         }
 
         #[test]
         fn with_empty_delim() {
             let replacement = Replacement {
-                matcher: matcher_with_delimiter(""),
+                matcher: Box::<Pattern>::default(),
                 date_time: date(2023, 10, 25),
                 rest: String::from("foo"),
             };
-            let state = State::default();
-
-            assert_eq!("2023-10-25foo", replacement.result(&state));
+            assert_eq!("2023-10-25foo", replacement.result());
         }
 
         #[test]
         fn with_delim() {
+            let mut pattern = Box::<Pattern>::default();
+            pattern.delimiter = String::from("-");
+
             let replacement = Replacement {
-                matcher: matcher_with_delimiter("-"),
+                matcher: pattern,
                 date_time: date(2023, 10, 25),
                 rest: String::from("foo"),
             };
-            let state = State::default();
+            assert_eq!("2023-10-25-foo", replacement.result());
+        }
 
-            assert_eq!("2023-10-25-foo", replacement.result(&state));
+        #[test]
+        fn with_format() {
+            let mut pattern = Box::<Pattern>::default();
+            pattern.delimiter = String::from("-");
+            pattern.format = String::from("%Y-%m-%d-%H");
+
+            let replacement = Replacement {
+                matcher: pattern,
+                date_time: date_time(2023, 10, 25, 13, 0, 0),
+                rest: String::from("foo"),
+            };
+            assert_eq!("2023-10-25-13-foo", replacement.result());
         }
     }
 }
