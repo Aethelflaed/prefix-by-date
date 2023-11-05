@@ -1,4 +1,4 @@
-use crate::processing::{Error, ErrorKind, Result};
+use crate::processing::{Error, Result};
 use crate::replacement::Replacement;
 use crate::state::State;
 use std::path::PathBuf;
@@ -11,7 +11,7 @@ pub struct PathInfo<'a> {
 impl<'a> PathInfo<'a> {
     pub fn prefix_if_possible(&self) -> Result<Replacement> {
         if !self.path.try_exists().unwrap() {
-            return Err(Error::new(ErrorKind::NotFound(self.path.clone())));
+            return Err(Error::not_found(self.path));
         }
 
         let file_name = self.path.file_name().unwrap().to_str().unwrap();
@@ -29,7 +29,7 @@ impl<'a> PathInfo<'a> {
             }
         }
 
-        Err(Error::new(ErrorKind::NoMatch(self.path.clone())))
+        Err(Error::no_match(self.path))
     }
 
     fn rename(&self, new_name: &str) -> Result<()> {

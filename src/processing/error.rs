@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::{error, fmt, io};
 
 pub enum ErrorKind {
@@ -50,7 +50,15 @@ impl fmt::Display for Error {
 }
 
 impl Error {
-    pub fn new(kind: ErrorKind) -> Error {
-        Error { kind }
+    pub fn not_found(path: &Path) -> Error {
+        Error {
+            kind: ErrorKind::NotFound(path.to_path_buf()),
+        }
+    }
+
+    pub fn no_match(path: &Path) -> Error {
+        Error {
+            kind: ErrorKind::NoMatch(path.to_path_buf()),
+        }
     }
 }
