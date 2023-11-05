@@ -70,7 +70,7 @@ impl State {
             log::debug!("Using matcher: {}", matcher.name());
         }
 
-        state.reporters.push(Box::<Log>::default());
+        state.add_reporter(Box::<Log>::default());
 
         Ok(state)
     }
@@ -105,6 +105,10 @@ impl State {
         if !self.matchers.iter().any(|m| m.name() == matcher.name()) {
             self.matchers.push(matcher);
         }
+    }
+
+    pub fn add_reporter(&mut self, reporter: Box<dyn Reporter>) {
+        self.reporters.push(reporter);
     }
 }
 
