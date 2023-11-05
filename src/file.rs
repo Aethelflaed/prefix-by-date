@@ -43,6 +43,8 @@ pub struct PathInfo<'a> {
 }
 
 impl<'a> PathInfo<'a> {
+    // TODO: have this method return a Result<Replacement> on success
+    // and a custom Error if no matcher is found
     pub fn prefix_if_possible(&self) -> Result<()> {
         if !self.path.try_exists().unwrap() {
             return Err(Error::new(ErrorKind::NotFound, "Path does not exist"));

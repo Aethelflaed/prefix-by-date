@@ -2,6 +2,7 @@ mod cli;
 mod file;
 mod log_config;
 mod matcher;
+mod processing;
 mod replacement;
 mod reporter;
 mod state;
