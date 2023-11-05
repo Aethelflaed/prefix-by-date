@@ -1,5 +1,4 @@
 mod cli;
-mod file;
 mod log_config;
 mod matcher;
 mod processing;
@@ -8,8 +7,7 @@ mod reporter;
 mod state;
 
 use cli::Cli;
-use file::Processing;
-use processing::Result;
+use processing::{Processing, Result};
 use state::State;
 
 fn main() -> Result<()> {
