@@ -1,6 +1,6 @@
+use crate::processing::{PathInfo, Result};
 use crate::reporter::Reporter;
 use crate::state::State;
-use std::io::{Error, ErrorKind, Result};
 use std::path::PathBuf;
 
 pub struct Processing<'a> {
@@ -24,8 +24,11 @@ impl<'a> Processing<'a> {
             };
 
             match path_info.prefix_if_possible() {
-                Ok(_) => {
-                    self.state.reporter.processing_ok(path);
+                Ok(replacement) => {
+                    self.state.reporter.processing_ok(
+                        path,
+                        replacement.result(self.state).as_str(),
+                    );
                 }
                 Err(error) => {
                     self.state.reporter.processing_err(path, &error);
@@ -34,41 +37,5 @@ impl<'a> Processing<'a> {
         }
 
         Ok(())
-    }
-}
-
-pub struct PathInfo<'a> {
-    pub state: &'a State,
-    pub path: &'a PathBuf,
-}
-
-impl<'a> PathInfo<'a> {
-    // TODO: have this method return a Result<Replacement> on success
-    // and a custom Error if no matcher is found
-    pub fn prefix_if_possible(&self) -> Result<()> {
-        if !self.path.try_exists().unwrap() {
-            return Err(Error::new(ErrorKind::NotFound, "Path does not exist"));
-        }
-
-        let file_name = self.path.file_name().unwrap().to_str().unwrap();
-
-        for matcher in &self.state.matchers {
-            if let Some(replacement) = matcher.check(file_name) {
-                log::debug!("Match: {}", matcher.name());
-
-                self.rename(replacement.result(self.state).as_str())?;
-            }
-        }
-        Ok(())
-    }
-
-    fn rename(&self, new_name: &str) -> Result<()> {
-        let mut new_path = self.path.clone();
-        new_path.pop();
-        new_path.push(new_name);
-
-        log::info!("Renaming: {:?} -> {:?}", self.path, new_path);
-
-        std::fs::rename(self.path, new_path)
     }
 }

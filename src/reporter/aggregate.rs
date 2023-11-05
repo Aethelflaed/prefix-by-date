@@ -1,5 +1,5 @@
+use crate::processing::Error;
 use crate::reporter::Reporter;
-use std::io::Error;
 use std::path::Path;
 
 #[derive(Default)]
@@ -30,9 +30,9 @@ impl Reporter for Aggregate {
             reporter.processing_err(path, error);
         }
     }
-    fn processing_ok(&self, path: &Path) {
+    fn processing_ok(&self, path: &Path, new_name: &str) {
         for reporter in &self.reporters {
-            reporter.processing_ok(path);
+            reporter.processing_ok(path, new_name);
         }
     }
 }

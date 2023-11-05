@@ -9,9 +9,10 @@ mod state;
 
 use cli::Cli;
 use file::Processing;
+use processing::Result;
 use state::State;
 
-fn main() -> std::io::Result<()> {
+fn main() -> Result<()> {
     log_config::setup()?;
 
     let cli = Cli::setup();

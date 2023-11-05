@@ -1,9 +1,10 @@
+use std::path::PathBuf;
 use std::{error, fmt, io};
 
 pub enum ErrorKind {
     Io(io::Error),
-    NotFound(String),
-    NoMatch(String),
+    NotFound(PathBuf),
+    NoMatch(PathBuf),
 }
 
 pub struct Error {
@@ -22,19 +23,34 @@ impl From<io::Error> for Error {
 
 impl fmt::Debug for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "An Error Occurred, Please Try Again!")
+        match &self.kind {
+            ErrorKind::Io(error) => write!(f, "Io error: {:?}", error),
+            ErrorKind::NotFound(path) => {
+                write!(f, "Path not found: {:?}", path)
+            }
+            ErrorKind::NoMatch(path) => {
+                write!(f, "No match for path: {:?}", path)
+            }
+        }
     }
 }
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "An Error Occurred, Please Try Again!")
+        match &self.kind {
+            ErrorKind::Io(error) => write!(f, "Io error: {:?}", error),
+            ErrorKind::NotFound(path) => {
+                write!(f, "Path not found: {:?}", path)
+            }
+            ErrorKind::NoMatch(path) => {
+                write!(f, "No match for path: {:?}", path)
+            }
+        }
     }
 }
 
 impl Error {
-    pub fn new(kind: ErrorKind) -> Error
-    {
+    pub fn new(kind: ErrorKind) -> Error {
         Error { kind }
     }
 }

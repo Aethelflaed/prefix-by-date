@@ -1,6 +1,6 @@
+use crate::processing::Error;
 use crate::reporter::Reporter;
 use std::cell::Cell;
-use std::io::Error;
 use std::path::Path;
 
 #[derive(Default)]
@@ -39,7 +39,8 @@ impl Reporter for Log {
         log::error!("{:?}", error);
     }
     /// Report that processing  the path finished successfully
-    fn processing_ok(&self, path: &Path) {
+    fn processing_ok(&self, path: &Path, new_name: &str) {
         self.report_path("Success processing path", path);
+        log::info!("Into: {:?}", new_name);
     }
 }

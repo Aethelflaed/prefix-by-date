@@ -45,7 +45,7 @@ impl State {
             log::debug!("Using matcher: {}", matcher.name());
         }
 
-        state.reporter.add(Box::new(Log::default()));
+        state.reporter.add(Box::<Log>::default());
 
         Ok(state)
     }
