@@ -1,6 +1,6 @@
 use crate::processing::{Error, Result};
 use crate::replacement::Replacement;
-use crate::state::State;
+use crate::state::{Confirmation, State};
 use std::path::PathBuf;
 
 pub struct PathInfo<'a> {
@@ -18,11 +18,19 @@ impl<'a> PathInfo<'a> {
 
         for matcher in &self.state.matchers {
             if let Some(replacement) = matcher.check(file_name) {
-                log::debug!("Match: {}", matcher.name());
-
-                return match self.rename(replacement.result().as_str()) {
-                    Ok(()) => Ok(replacement),
-                    Err(error) => Err(error),
+                return match self.state.confirm(self.path, &replacement) {
+                    Confirmation::Replace(replacement) => {
+                        match self.rename(replacement.result().as_str()) {
+                            Ok(()) => Ok(replacement),
+                            Err(error) => Err(error),
+                        }
+                    }
+                    Confirmation::Accept => {
+                        match self.rename(replacement.result().as_str()) {
+                            Ok(()) => Ok(replacement),
+                            Err(error) => Err(error),
+                        }
+                    }
                 };
             }
         }

@@ -1,14 +1,49 @@
 use crate::cli::Cli;
 use crate::matcher::{Matcher, Pattern, PredeterminedDate};
-use crate::reporter::{Aggregate, Log};
+use crate::processing::Error;
+use crate::replacement::Replacement;
+use crate::reporter::{Log, Reporter};
 use std::boxed::Box;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use toml::Table;
 
 #[derive(Default)]
 pub struct State {
     pub matchers: Vec<Box<dyn Matcher>>,
-    pub reporter: Aggregate,
+    reporters: Vec<Box<dyn Reporter>>,
+}
+
+#[allow(dead_code)]
+pub enum Confirmation {
+    Accept,
+    //Always,
+    //Refuse,
+    //Ignore,
+    Replace(Replacement),
+}
+
+impl Reporter for State {
+    fn count(&self, number: usize) {
+        for reporter in &self.reporters {
+            reporter.count(number);
+        }
+    }
+
+    fn processing(&self, path: &Path) {
+        for reporter in &self.reporters {
+            reporter.processing(path);
+        }
+    }
+    fn processing_err(&self, path: &Path, error: &Error) {
+        for reporter in &self.reporters {
+            reporter.processing_err(path, error);
+        }
+    }
+    fn processing_ok(&self, path: &Path, new_name: &str) {
+        for reporter in &self.reporters {
+            reporter.processing_ok(path, new_name);
+        }
+    }
 }
 
 impl State {
@@ -35,9 +70,17 @@ impl State {
             log::debug!("Using matcher: {}", matcher.name());
         }
 
-        state.reporter.add(Box::<Log>::default());
+        state.reporters.push(Box::<Log>::default());
 
         Ok(state)
+    }
+
+    pub fn confirm(
+        &self,
+        _path: &Path,
+        _replacement: &Replacement,
+    ) -> Confirmation {
+        Confirmation::Accept
     }
 
     fn read_config(&mut self, default_format: &str) -> std::io::Result<()> {

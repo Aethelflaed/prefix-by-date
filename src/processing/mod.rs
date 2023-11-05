@@ -16,13 +16,13 @@ pub struct Processing<'a> {
 
 impl<'a> Processing<'a> {
     pub fn new(state: &'a State, paths: &'a Vec<PathBuf>) -> Processing<'a> {
-        state.reporter.count(paths.len());
+        state.count(paths.len());
         Self { state, paths }
     }
 
     pub fn run(&self) -> Result<()> {
         for path in self.paths {
-            self.state.reporter.processing(path);
+            self.state.processing(path);
 
             let path_info = PathInfo {
                 state: self.state,
@@ -32,11 +32,10 @@ impl<'a> Processing<'a> {
             match path_info.prefix_if_possible() {
                 Ok(replacement) => {
                     self.state
-                        .reporter
                         .processing_ok(path, replacement.result().as_str());
                 }
                 Err(error) => {
-                    self.state.reporter.processing_err(path, &error);
+                    self.state.processing_err(path, &error);
                 }
             }
         }
