@@ -50,6 +50,13 @@ impl Default for Context {
 
     #[cfg(feature = "cli")]
     fn default() -> Self {
+        // We need a hidden ProgressDrawTarget for the tests if we don't
+        // want to polute the output
+        #[cfg(test)]
+        let multi_progress = MultiProgress::with_draw_target(
+            indicatif::ProgressDrawTarget::hidden(),
+        );
+        #[cfg(not(test))]
         let multi_progress = MultiProgress::new();
 
         Self {
@@ -187,7 +194,10 @@ impl Context {
 
     #[cfg(feature = "cli")]
     fn after_setup(&mut self, cli: &Cli) -> Result<()> {
-        self.bar = Some(self.multi_progress.add(ProgressBar::new(cli.paths.len() as u64)));
+        self.bar = Some(
+            self.multi_progress
+                .add(ProgressBar::new(cli.paths.len() as u64)),
+        );
 
         Ok(())
     }
@@ -205,8 +215,7 @@ impl Context {
     }
 
     #[cfg(not(feature = "cli"))]
-    fn after_proces(&self, _path: &Path) {
-    }
+    fn after_proces(&self, _path: &Path) {}
 }
 
 impl Reporter for Context {

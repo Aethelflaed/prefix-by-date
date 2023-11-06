@@ -15,7 +15,6 @@ fn main() -> Result<()> {
 
     context.setup(&cli)?;
 
-
     Processing::new(&context).run(&cli.paths)?;
 
     Ok(())
