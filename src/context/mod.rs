@@ -119,11 +119,47 @@ impl Context {
         self.reporters.push(reporter);
     }
 
+    #[cfg(not(feature = "cli"))]
     pub fn confirm(
         &self,
         _path: &Path,
         _replacement: &Replacement,
     ) -> Confirmation {
+        Confirmation::Accept
+    }
+
+    #[cfg(feature = "cli")]
+    pub fn confirm(
+        &self,
+        path: &Path,
+        replacement: &Replacement,
+    ) -> Confirmation {
+        use dialoguer::FuzzySelect;
+
+        println!("{} will be renamed into {}", path.display(), replacement.result());
+
+        let items = vec![
+            "Yes, accept the rename and continue",
+            "Always accept similar rename and continue",
+            "Refuse the rename and continue",
+            "Ignore all similar rename and continue",
+            "Quit now, refusing this rename",
+            "View other possibilities",
+            "Customize the rename"
+        ];
+
+        let selection = FuzzySelect::new()
+            .with_prompt("What do you want to do?")
+            .items(&items)
+            .interact()
+            .unwrap();
+
+        match selection {
+            0 => { return Confirmation::Accept },
+            _ => todo!(),
+        }
+        println!("You chose: {}", items[selection]);
+
         Confirmation::Accept
     }
 
