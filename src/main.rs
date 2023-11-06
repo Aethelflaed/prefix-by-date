@@ -33,8 +33,5 @@ fn main() -> Result<()> {
     let mut state = State::from(&cli)?;
     state.add_reporter(Box::new(reporter.clone()));
 
-    Processing::new(&state, &cli.paths).run()?;
-
-    reporter.bar.finish();
-    Ok(())
+    Processing::new(&state, &cli.paths).run()
 }

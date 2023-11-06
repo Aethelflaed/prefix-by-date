@@ -16,6 +16,12 @@ impl Default for Reporter {
     }
 }
 
+impl Drop for Reporter {
+    fn drop(&mut self) {
+        self.bar.finish();
+    }
+}
+
 impl reporter::Reporter for Reporter {
     /// Report the total count of elements to be processed
     fn count(&self, number: usize) {
