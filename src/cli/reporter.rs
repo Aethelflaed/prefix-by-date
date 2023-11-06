@@ -1,6 +1,6 @@
-use indicatif::ProgressBar;
-use crate::reporter;
 use crate::processing::Error;
+use crate::reporter;
+use indicatif::ProgressBar;
 use std::path::Path;
 
 #[derive(Clone)]
@@ -11,7 +11,7 @@ pub struct Reporter {
 impl Default for Reporter {
     fn default() -> Self {
         Self {
-            bar: ProgressBar::new(1000)
+            bar: ProgressBar::new(1000),
         }
     }
 }
@@ -29,8 +29,7 @@ impl reporter::Reporter for Reporter {
     }
 
     /// Report that we start processing a new path
-    fn processing(&self, _path: &Path) {
-    }
+    fn processing(&self, _path: &Path) {}
     /// Report that processing the path yielded an error
     fn processing_err(&self, _path: &Path, _error: &Error) {
         self.bar.inc(1);

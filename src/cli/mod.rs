@@ -6,7 +6,7 @@ mod reporter;
 #[cfg(feature = "cli")]
 pub use reporter::Reporter;
 
-#[derive(Parser)]
+#[derive(Default, Parser)]
 #[command(version)]
 pub struct Cli {
     #[clap(flatten)]

@@ -19,7 +19,7 @@ impl From<io::Error> for Error {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match &self {
-            Self::Io(error) => fmt::Display::fmt(&error, &mut f),
+            Self::Io(error) => fmt::Display::fmt(&error, f),
             Self::NotFound(path) => {
                 write!(f, "Path not found: {:?}", path)
             }
