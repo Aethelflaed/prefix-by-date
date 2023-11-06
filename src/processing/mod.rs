@@ -1,5 +1,5 @@
 mod error;
-pub use error::{Error, ErrorKind};
+pub use error::Error;
 pub type Result<T> = std::result::Result<T, Error>;
 
 mod path_info;
