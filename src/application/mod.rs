@@ -18,7 +18,7 @@ type LogResult = std::result::Result<(), log::SetLoggerError>;
 #[cfg(feature = "cli")]
 use indicatif::{MultiProgress, ProgressBar};
 
-pub struct Context {
+pub struct Application {
     pub matchers: Vec<Box<dyn Matcher>>,
     pub reporters: Vec<Box<dyn Reporter>>,
     pub cli: Cli,
@@ -38,7 +38,7 @@ pub enum Confirmation {
 }
 
 #[allow(clippy::derivable_impls)]
-impl Default for Context {
+impl Default for Application {
     #[cfg(not(feature = "cli"))]
     fn default() -> Self {
         Self {
@@ -70,7 +70,7 @@ impl Default for Context {
 }
 
 #[cfg(feature = "cli")]
-impl Drop for Context {
+impl Drop for Application {
     fn drop(&mut self) {
         if let Some(bar) = &self.bar {
             bar.finish();
@@ -79,12 +79,12 @@ impl Drop for Context {
     }
 }
 
-impl Context {
+impl Application {
     pub fn new() -> Result<Self> {
-        let mut context = Self::default();
-        context.setup_log()?;
+        let mut app = Self::default();
+        app.setup_log()?;
 
-        Ok(context)
+        Ok(app)
     }
 
     pub fn setup(&mut self, cli: &Cli) -> Result<()> {
@@ -254,7 +254,7 @@ impl Context {
     fn after_proces(&self, _path: &Path) {}
 }
 
-impl Reporter for Context {
+impl Reporter for Application {
     fn count(&self, number: usize) {
         for reporter in &self.reporters {
             reporter.count(number);
@@ -360,27 +360,27 @@ regex = """
             ..cli()
         };
 
-        let mut context = Context::default();
-        with_config(|| context.setup(&cli).unwrap());
+        let mut app = Application::default();
+        with_config(|| app.setup(&cli).unwrap());
 
-        assert_eq!(3, context.matchers.len());
-        assert_eq!("Predetermined date", context.matchers[0].name());
-        assert_eq!("whatsapp", context.matchers[1].name());
-        assert_eq!("cic", context.matchers[2].name());
+        assert_eq!(3, app.matchers.len());
+        assert_eq!("Predetermined date", app.matchers[0].name());
+        assert_eq!("whatsapp", app.matchers[1].name());
+        assert_eq!("cic", app.matchers[2].name());
     }
 
     #[test]
     fn time() {
         with_config(|| {
             let mut cli = cli();
-            let mut context = Context::default();
-            context.setup(&cli).unwrap();
-            assert_eq!("%Y-%m-%d", context.matchers[0].date_format());
+            let mut app = Application::default();
+            app.setup(&cli).unwrap();
+            assert_eq!("%Y-%m-%d", app.matchers[0].date_format());
 
             cli.time = true;
-            context = Context::default();
-            context.setup(&cli).unwrap();
-            assert_eq!("%Y-%m-%d %Hh%Mm%S", context.matchers[0].date_format());
+            app = Application::default();
+            app.setup(&cli).unwrap();
+            assert_eq!("%Y-%m-%d %Hh%Mm%S", app.matchers[0].date_format());
         })
     }
 
@@ -400,34 +400,34 @@ regex = """
     #[test]
     fn read_config() {
         let mut cli = cli();
-        let mut context = Context::default();
-        with_config(|| context.setup(&cli).unwrap());
+        let mut app = Application::default();
+        with_config(|| app.setup(&cli).unwrap());
 
-        assert_eq!(2, context.matchers.len());
-        assert_eq!("whatsapp", context.matchers[0].name());
-        assert_eq!("%Y-%m-%d", context.matchers[0].date_format());
-        assert_eq!("cic", context.matchers[1].name());
-        assert_eq!("%Y-%m-%d", context.matchers[1].date_format());
+        assert_eq!(2, app.matchers.len());
+        assert_eq!("whatsapp", app.matchers[0].name());
+        assert_eq!("%Y-%m-%d", app.matchers[0].date_format());
+        assert_eq!("cic", app.matchers[1].name());
+        assert_eq!("%Y-%m-%d", app.matchers[1].date_format());
 
         cli.time = true;
-        context = Context::default();
-        with_config(|| context.setup(&cli).unwrap());
+        app = Application::default();
+        with_config(|| app.setup(&cli).unwrap());
 
-        assert_eq!(2, context.matchers.len());
-        assert_eq!("whatsapp", context.matchers[0].name());
-        assert_eq!("%Y-%m-%d %Hh%Mm%S", context.matchers[0].date_format());
-        assert_eq!("cic", context.matchers[1].name());
-        assert_eq!("%Y-%m-%d %Hh%Mm%S", context.matchers[1].date_format());
+        assert_eq!(2, app.matchers.len());
+        assert_eq!("whatsapp", app.matchers[0].name());
+        assert_eq!("%Y-%m-%d %Hh%Mm%S", app.matchers[0].date_format());
+        assert_eq!("cic", app.matchers[1].name());
+        assert_eq!("%Y-%m-%d %Hh%Mm%S", app.matchers[1].date_format());
     }
 
     #[test]
     fn add_matcher_with_same_name() {
-        let mut context = Context::default();
+        let mut app = Application::default();
 
-        context.add_matcher(Box::<PredeterminedDate>::default());
-        assert_eq!(1, context.matchers.len());
+        app.add_matcher(Box::<PredeterminedDate>::default());
+        assert_eq!(1, app.matchers.len());
 
-        context.add_matcher(Box::<PredeterminedDate>::default());
-        assert_eq!(1, context.matchers.len());
+        app.add_matcher(Box::<PredeterminedDate>::default());
+        assert_eq!(1, app.matchers.len());
     }
 }

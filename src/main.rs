@@ -1,21 +1,21 @@
 mod cli;
-mod context;
+mod application;
 mod matcher;
 mod processing;
 mod replacement;
 mod reporter;
 
 use cli::Cli;
-use context::{Context, Result};
+use application::{Application, Result};
 use processing::Processing;
 
 fn main() -> Result<()> {
-    let mut context = Context::new()?;
+    let mut app = Application::new()?;
     let cli = Cli::setup();
 
-    context.setup(&cli)?;
+    app.setup(&cli)?;
 
-    Processing::new(&context).run(&cli.paths)?;
+    Processing::new(&app).run(&cli.paths)?;
 
     Ok(())
 }

@@ -1,10 +1,10 @@
-use crate::context::{Confirmation, Context};
+use crate::application::{Confirmation, Application};
 use crate::processing::{Error, Result};
 use crate::replacement::Replacement;
 use std::path::PathBuf;
 
 pub struct PathInfo<'a> {
-    pub context: &'a Context,
+    pub app: &'a Application,
     pub path: &'a PathBuf,
 }
 
@@ -16,9 +16,9 @@ impl<'a> PathInfo<'a> {
 
         let file_name = self.path.file_name().unwrap().to_str().unwrap();
 
-        for matcher in &self.context.matchers {
+        for matcher in &self.app.matchers {
             if let Some(replacement) = matcher.check(file_name) {
-                return match self.context.confirm(self.path, &replacement) {
+                return match self.app.confirm(self.path, &replacement) {
                     Confirmation::Replace(replacement) => {
                         match self.rename(replacement.result().as_str()) {
                             Ok(()) => Ok(replacement),
