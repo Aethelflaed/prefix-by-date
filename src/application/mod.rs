@@ -136,7 +136,11 @@ impl Application {
     ) -> Confirmation {
         use dialoguer::FuzzySelect;
 
-        println!("{} will be renamed into {}", path.display(), replacement.result());
+        println!(
+            "{} will be renamed into {}",
+            path.display(),
+            replacement.result()
+        );
 
         let items = vec![
             "Yes, accept the rename and continue",
@@ -145,7 +149,7 @@ impl Application {
             "Ignore all similar rename and continue",
             "Quit now, refusing this rename",
             "View other possibilities",
-            "Customize the rename"
+            "Customize the rename",
         ];
 
         let selection = FuzzySelect::new()
@@ -155,7 +159,7 @@ impl Application {
             .unwrap();
 
         match selection {
-            0 => { return Confirmation::Accept },
+            0 => return Confirmation::Accept,
             _ => todo!(),
         }
         println!("You chose: {}", items[selection]);

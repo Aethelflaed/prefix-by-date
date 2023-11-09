@@ -1,12 +1,12 @@
-mod cli;
 mod application;
+mod cli;
 mod matcher;
 mod processing;
 mod replacement;
 mod reporter;
 
-use cli::Cli;
 use application::{Application, Result};
+use cli::Cli;
 use processing::Processing;
 
 fn main() -> Result<()> {
