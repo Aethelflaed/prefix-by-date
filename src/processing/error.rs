@@ -6,6 +6,7 @@ pub enum Error {
     Io(io::Error),
     NotFound(PathBuf),
     NoMatch(PathBuf),
+    PathUnwrap(PathBuf, &'static str),
     Abort,
 }
 
@@ -29,6 +30,13 @@ impl fmt::Display for Error {
             }
             Self::Abort => {
                 write!(f, "Abort received, quitting...")
+            }
+            Self::PathUnwrap(path, op) => {
+                write!(
+                    f,
+                    "Error unwrapping operationg {:?} for path: {:?}",
+                    op, path
+                )
             }
         }
     }

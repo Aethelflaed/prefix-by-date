@@ -40,8 +40,8 @@ impl Reporter for Log {
         log::error!("{:?}", error);
     }
     /// Report that processing  the path finished successfully
-    fn processing_ok(&self, path: &Path, new_name: &str) {
+    fn processing_ok(&self, path: &Path, new_path: &Path) {
         self.report_path("Success processing path", path);
-        log::info!("Into: {:?}", new_name);
+        log::info!("Into: {:?}", new_path);
     }
 }

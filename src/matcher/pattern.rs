@@ -1,8 +1,8 @@
 use crate::matcher::Matcher;
 use crate::replacement::Replacement;
 
-use std::str::FromStr;
 use std::path::Path;
+use std::str::FromStr;
 
 use chrono::{Local, TimeZone};
 use regex::{Captures, Regex, RegexBuilder};
@@ -18,7 +18,7 @@ pub struct Pattern {
 impl Default for Pattern {
     fn default() -> Self {
         Self {
-            regex: Regex::new(".").unwrap(),
+            regex: Regex::new(".").expect("Default pattern to compile"),
             format: String::from("%Y-%m-%d"),
             name: String::from(""),
             delimiter: String::from(""),
@@ -51,7 +51,7 @@ where
 {
     captures
         .name(name)
-        .map(|str| str.as_str().parse::<T>().unwrap())
+        .and_then(|str| str.as_str().parse::<T>().ok())
 }
 
 impl Pattern {
@@ -67,14 +67,11 @@ impl Pattern {
         Self::builder().deserialize(name, table, default_format)
     }
 
-    fn replacement_from_captures(
-        &self,
-        captures: Captures,
-    ) -> Option<Replacement> {
+    fn file_stem_from_captures(&self, captures: Captures) -> Option<String> {
         let date_time = Local.with_ymd_and_hms(
-            parse::<i32>(&captures, "year").unwrap(),
-            parse::<u32>(&captures, "month").unwrap(),
-            parse::<u32>(&captures, "day").unwrap(),
+            parse::<i32>(&captures, "year")?,
+            parse::<u32>(&captures, "month")?,
+            parse::<u32>(&captures, "day")?,
             parse::<u32>(&captures, "hour").unwrap_or(0),
             parse::<u32>(&captures, "min").unwrap_or(0),
             parse::<u32>(&captures, "sec").unwrap_or(0),
@@ -93,23 +90,30 @@ impl Pattern {
             }
         }
 
-        let rest = elements.join(&self.delimiter);
+        match date_time.earliest() {
+            None => return None,
+            Some(time) => {
+                elements.push(time.format(self.format.as_str()).to_string())
+            }
+        }
 
-        date_time.earliest().map(|date_time| Replacement {
-            matcher: Box::new(self.clone()),
-            date_time,
-            rest,
-        })
+        elements.rotate_right(1);
+        Some(elements.join(&self.delimiter))
     }
 }
 
 impl Matcher for Pattern {
     fn check(&self, path: &Path) -> Option<Replacement> {
-        let file_name = path.file_name().unwrap().to_str().unwrap();
+        let mut replacement = Replacement::from(path)?;
 
-        self.regex
-            .captures(file_name)
-            .and_then(|captures| self.replacement_from_captures(captures))
+        let file_stem = self
+            .regex
+            .captures(&replacement.str_file_stem()?)
+            .and_then(|captures| self.file_stem_from_captures(captures))?;
+
+        replacement.new_file_stem = file_stem;
+
+        Some(replacement)
     }
 
     fn name(&self) -> &str {
@@ -180,7 +184,10 @@ impl PatternBuilder {
             .ok()
             .map(|regex| Pattern {
                 regex,
-                name: self.name.clone().unwrap(),
+                name: self
+                    .name
+                    .clone()
+                    .expect("Name is mandatory to build pattern"),
                 delimiter: self.delimiter.clone().unwrap_or("".into()),
                 format: self.format.clone(),
             })
@@ -246,8 +253,8 @@ mod tests {
         let mut replacement = pattern.check(&name).unwrap();
 
         assert_eq!(
-            String::from("2023-10-28IMGwhatever.jpg"),
-            replacement.result()
+            String::from("2023-10-28IMGwhatever"),
+            replacement.new_file_stem
         );
 
         // Try again with a delimiter
@@ -271,8 +278,8 @@ mod tests {
         replacement = pattern.check(&name).unwrap();
 
         assert_eq!(
-            String::from("2023-10-28 IMG whatever.jpg"),
-            replacement.result()
+            String::from("2023-10-28 IMG whatever"),
+            replacement.new_file_stem
         );
 
         // Try with a non matching name
@@ -305,8 +312,8 @@ mod tests {
         let replacement = pattern.check(&name).unwrap();
 
         assert_eq!(
-            String::from("2023-10-28 23h59m59almost midnight.jpg"),
-            replacement.result()
+            String::from("2023-10-28 23h59m59almost midnight"),
+            replacement.new_file_stem
         );
 
         // Invalid date time
@@ -336,10 +343,11 @@ mod tests {
             .build()
             .unwrap();
 
-        let name = PathBuf::from("skfljdlks-20231028-235959-almost midnight.jpg");
+        let name =
+            PathBuf::from("skfljdlks-20231028-235959-almost midnight.jpg");
         let replacement = pattern.check(&name).unwrap();
 
-        assert_eq!(String::from("2023-10-28"), replacement.result());
+        assert_eq!(String::from("2023-10-28"), replacement.new_file_stem);
     }
 
     mod deserialize {

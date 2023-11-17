@@ -1,102 +1,83 @@
-use crate::matcher::Matcher;
-use chrono::{DateTime, Local};
-use std::boxed::Box;
+use crate::processing::{Error, Result};
+
+use std::ffi::OsStr;
+use std::path::{Path, PathBuf};
 
 pub struct Replacement {
-    pub matcher: Box<dyn Matcher>,
-    pub date_time: DateTime<Local>,
-    pub rest: String,
+    pub path: PathBuf,
+    pub new_file_stem: String,
+    pub extension: String,
 }
 
 impl Replacement {
-    pub fn result(&self) -> String {
-        let mut name: String = self
-            .date_time
-            .format(self.matcher.date_format())
-            .to_string();
+    pub fn from(path: &Path) -> Option<Self> {
+        let file_stem = path.file_stem().and_then(os_str_to_string)?;
+        let ext = path.extension().and_then(os_str_to_string)?;
 
-        if !self.rest.is_empty() {
-            name.push_str(self.matcher.delimiter());
-            name.push_str(&self.rest);
-        }
-
-        name
+        Some(Replacement {
+            path: PathBuf::from(path),
+            new_file_stem: file_stem,
+            extension: ext,
+        })
     }
+
+    pub fn execute(&self) -> Result<PathBuf> {
+        let new_path = self.new_path()?;
+        std::fs::rename(&self.path, &new_path)?;
+
+        Ok(new_path)
+    }
+
+    pub fn str_file_stem(&self) -> Option<String> {
+        self.path.file_stem().and_then(os_str_to_string)
+    }
+
+    pub fn new_path(&self) -> Result<PathBuf> {
+        let parent = self
+            .path
+            .parent()
+            .ok_or(Error::PathUnwrap(self.path.clone(), "parent"))?;
+        let extension = self
+            .path
+            .extension()
+            .ok_or(Error::PathUnwrap(self.path.clone(), "extension"))?
+            .to_str()
+            .ok_or(Error::PathUnwrap(self.path.clone(), "extension/to_str"))?;
+
+        Ok(parent.join(format!("{}.{}", self.new_file_stem, extension,)))
+    }
+}
+
+fn os_str_to_string(os_str: &OsStr) -> Option<String> {
+    os_str.to_str().map(String::from)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::matcher::Pattern;
-    use chrono::TimeZone;
+    use pretty_assertions::assert_eq;
 
-    fn date_time(
-        year: i32,
-        month: u32,
-        day: u32,
-        hour: u32,
-        min: u32,
-        sec: u32,
-    ) -> DateTime<Local> {
-        Local
-            .with_ymd_and_hms(year, month, day, hour, min, sec)
-            .earliest()
-            .unwrap()
+    fn path() -> PathBuf {
+        PathBuf::from("/this/is/a/test.pdf")
     }
 
-    fn date(year: i32, month: u32, day: u32) -> DateTime<Local> {
-        date_time(year, month, day, 0, 0, 0)
+    #[test]
+    fn from() {
+        let replacement = Replacement::from(&path()).unwrap();
+
+        assert_eq!(String::from("test"), replacement.str_file_stem().unwrap());
+        assert_eq!(path(), replacement.new_path().unwrap());
     }
 
-    mod result {
-        use super::*;
-        use pretty_assertions::assert_eq;
+    #[test]
+    fn customized_file_stem() {
+        let mut replacement = Replacement::from(&path()).unwrap();
+        replacement.new_file_stem = String::from("success.txt");
 
-        #[test]
-        fn without_rest() {
-            let replacement = Replacement {
-                matcher: Box::<Pattern>::default(),
-                date_time: date(2023, 10, 25),
-                rest: String::from(""),
-            };
-            assert_eq!("2023-10-25", replacement.result());
-        }
-
-        #[test]
-        fn with_empty_delim() {
-            let replacement = Replacement {
-                matcher: Box::<Pattern>::default(),
-                date_time: date(2023, 10, 25),
-                rest: String::from("foo"),
-            };
-            assert_eq!("2023-10-25foo", replacement.result());
-        }
-
-        #[test]
-        fn with_delim() {
-            let mut pattern = Box::<Pattern>::default();
-            pattern.delimiter = String::from("-");
-
-            let replacement = Replacement {
-                matcher: pattern,
-                date_time: date(2023, 10, 25),
-                rest: String::from("foo"),
-            };
-            assert_eq!("2023-10-25-foo", replacement.result());
-        }
-
-        #[test]
-        fn with_format() {
-            let mut pattern = Box::<Pattern>::default();
-            pattern.delimiter = String::from("-");
-            pattern.format = String::from("%Y-%m-%d-%H");
-
-            let replacement = Replacement {
-                matcher: pattern,
-                date_time: date_time(2023, 10, 25, 13, 0, 0),
-                rest: String::from("foo"),
-            };
-            assert_eq!("2023-10-25-13-foo", replacement.result());
-        }
+        assert_eq!(String::from("test"), replacement.str_file_stem().unwrap());
+        assert_eq!(
+            PathBuf::from("/this/is/a/success.txt.pdf"),
+            replacement.new_path().unwrap()
+        );
     }
 }

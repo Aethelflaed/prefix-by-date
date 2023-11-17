@@ -30,12 +30,12 @@ impl<'a> Processing<'a> {
         for path in paths {
             self.app.processing(path);
 
-            match self.prefix_if_possible(path).and_then(|replacement| {
-                self.rename(path, replacement.result().as_str())
-                    .map(|()| replacement)
-            }) {
+            match self
+                .prefix_if_possible(path)
+                .and_then(|replacement| replacement.execute())
+            {
                 Ok(replacement) => {
-                    self.app.processing_ok(path, replacement.result().as_str());
+                    self.app.processing_ok(path, &replacement);
                 }
                 Err(error) => {
                     self.app.processing_err(path, &error);
@@ -87,16 +87,8 @@ impl<'a> Processing<'a> {
 
     /// Return all non-ignored matchers
     fn matchers_mut(&mut self) -> impl Iterator<Item = &mut Matcher> + '_ {
-        self.matchers.iter_mut().filter(|matcher| !matcher.ignored())
-    }
-
-    fn rename(&self, path: &PathBuf, new_name: &str) -> Result<()> {
-        let mut new_path = path.clone();
-        new_path.pop();
-        new_path.push(new_name);
-
-        std::fs::rename(path, new_path)?;
-
-        Ok(())
+        self.matchers
+            .iter_mut()
+            .filter(|matcher| !matcher.ignored())
     }
 }

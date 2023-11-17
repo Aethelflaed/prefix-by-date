@@ -1,5 +1,5 @@
-use crate::replacement::Replacement;
 use crate::matcher::Matcher as MatcherTrait;
+use crate::replacement::Replacement;
 
 use std::path::Path;
 

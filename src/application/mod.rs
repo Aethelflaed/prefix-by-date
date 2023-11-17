@@ -140,7 +140,7 @@ impl Application {
         println!(
             "{} will be renamed into {}",
             path.display(),
-            replacement.result()
+            replacement.new_path().unwrap().to_str().unwrap()
         );
 
         let items = vec![
@@ -284,11 +284,11 @@ impl Reporter for Application {
         }
     }
 
-    fn processing_ok(&self, path: &Path, new_name: &str) {
+    fn processing_ok(&self, path: &Path, new_path: &Path) {
         self.after_proces(path);
 
         for reporter in &self.reporters {
-            reporter.processing_ok(path, new_name);
+            reporter.processing_ok(path, new_path);
         }
     }
 }

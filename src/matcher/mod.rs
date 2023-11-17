@@ -1,6 +1,5 @@
 use crate::replacement::Replacement;
 
-use std::boxed::Box;
 use std::path::Path;
 
 use chrono::{DateTime, Local};
@@ -42,13 +41,14 @@ impl Default for PredeterminedDate {
 
 impl Matcher for PredeterminedDate {
     fn check(&self, path: &Path) -> Option<Replacement> {
-        let file_name = path.file_name().unwrap().to_str().unwrap();
+        let mut replacement = Replacement::from(path)?;
+        replacement.new_file_stem = format!(
+            "{} {}",
+            self.date_time.format(self.format.as_str()),
+            replacement.str_file_stem()?,
+        );
 
-        Some(Replacement {
-            matcher: Box::new(self.clone()),
-            date_time: self.date_time,
-            rest: file_name.into(),
-        })
+        Some(replacement)
     }
 
     fn name(&self) -> &str {
@@ -106,7 +106,10 @@ mod tests {
             format: String::from("%Y-%m-%d %Hh%Mm"),
         };
 
-        let replacement = matcher.check(&PathBuf::from("foo")).unwrap();
-        assert_eq!(String::from("2023-10-31 00h00m foo"), replacement.result());
+        let replacement = matcher.check(&PathBuf::from("foo.bar")).unwrap();
+        assert_eq!(
+            PathBuf::from("2023-10-31 00h00m foo.bar"),
+            replacement.new_path().unwrap()
+        );
     }
 }
