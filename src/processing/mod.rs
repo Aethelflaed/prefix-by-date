@@ -37,12 +37,11 @@ impl<'a> Processing<'a> {
                 Ok(replacement) => {
                     self.app.processing_ok(path, &replacement);
                 }
+                Err(Error::Abort) => {
+                    return Err(Error::Abort)
+                }
                 Err(error) => {
                     self.app.processing_err(path, &error);
-
-                    if let Error::Abort = error {
-                        return Err(error);
-                    }
                 }
             }
         }
