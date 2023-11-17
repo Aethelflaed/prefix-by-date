@@ -1,6 +1,7 @@
 use crate::replacement::Replacement;
 
 use std::boxed::Box;
+use std::path::Path;
 
 use chrono::{DateTime, Local};
 use dyn_clone::DynClone;
@@ -10,9 +11,9 @@ pub use pattern::Pattern;
 
 /// Match a file to be renamed
 pub trait Matcher: DynClone {
-    /// Check if the given file_name should be replaced by the matcher and
+    /// Check if the given path should be replaced by the matcher and
     /// if so, return the appropriate Replacement
-    fn check(&self, file_name: &str) -> Option<Replacement>;
+    fn check(&self, path: &Path) -> Option<Replacement>;
 
     /// Name of the matcher
     fn name(&self) -> &str;
@@ -40,7 +41,9 @@ impl Default for PredeterminedDate {
 }
 
 impl Matcher for PredeterminedDate {
-    fn check(&self, file_name: &str) -> Option<Replacement> {
+    fn check(&self, path: &Path) -> Option<Replacement> {
+        let file_name = path.file_name().unwrap().to_str().unwrap();
+
         Some(Replacement {
             matcher: Box::new(self.clone()),
             date_time: self.date_time,
@@ -73,8 +76,10 @@ impl PredeterminedDate {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::TimeZone;
     use pretty_assertions::assert_eq;
+
+    use chrono::TimeZone;
+    use std::path::PathBuf;
 
     fn date_time(
         year: i32,
@@ -101,7 +106,7 @@ mod tests {
             format: String::from("%Y-%m-%d %Hh%Mm"),
         };
 
-        let replacement = matcher.check("foo").unwrap();
+        let replacement = matcher.check(&PathBuf::from("foo")).unwrap();
         assert_eq!(String::from("2023-10-31 00h00m foo"), replacement.result());
     }
 }

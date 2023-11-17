@@ -1,6 +1,8 @@
 use crate::replacement::Replacement;
 use crate::matcher::Matcher as MatcherTrait;
 
+use std::path::Path;
+
 #[derive(Clone)]
 pub struct Matcher {
     confirmed: bool,
@@ -18,8 +20,8 @@ impl Matcher {
         }
     }
 
-    pub fn check(&self, file_name: &str) -> Option<Replacement> {
-        self.matcher.check(file_name)
+    pub fn check(&self, path: &Path) -> Option<Replacement> {
+        self.matcher.check(path)
     }
 
     /// Check if the matcher needs confirmation

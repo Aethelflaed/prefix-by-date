@@ -2,6 +2,7 @@ use crate::matcher::Matcher;
 use crate::replacement::Replacement;
 
 use std::str::FromStr;
+use std::path::Path;
 
 use chrono::{Local, TimeZone};
 use regex::{Captures, Regex, RegexBuilder};
@@ -103,7 +104,9 @@ impl Pattern {
 }
 
 impl Matcher for Pattern {
-    fn check(&self, file_name: &str) -> Option<Replacement> {
+    fn check(&self, path: &Path) -> Option<Replacement> {
+        let file_name = path.file_name().unwrap().to_str().unwrap();
+
         self.regex
             .captures(file_name)
             .and_then(|captures| self.replacement_from_captures(captures))
@@ -189,6 +192,8 @@ mod tests {
     use super::*;
     use pretty_assertions::assert_eq;
 
+    use std::path::PathBuf;
+
     #[test]
     fn invalid_regex() {
         let pattern = Pattern::builder().regex(r"((").name("foo").build();
@@ -237,8 +242,8 @@ mod tests {
             .build()
             .unwrap();
 
-        let mut name = "IMG-20231028-whatever.jpg";
-        let mut replacement = pattern.check(name).unwrap();
+        let mut name = PathBuf::from("IMG-20231028-whatever.jpg");
+        let mut replacement = pattern.check(&name).unwrap();
 
         assert_eq!(
             String::from("2023-10-28IMGwhatever.jpg"),
@@ -263,7 +268,7 @@ mod tests {
             .build()
             .unwrap();
 
-        replacement = pattern.check(name).unwrap();
+        replacement = pattern.check(&name).unwrap();
 
         assert_eq!(
             String::from("2023-10-28 IMG whatever.jpg"),
@@ -271,8 +276,8 @@ mod tests {
         );
 
         // Try with a non matching name
-        name = "IMG-20230229-smth.jpb";
-        assert!(pattern.check(name).is_none());
+        name = PathBuf::from("IMG-20230229-smth.jpb");
+        assert!(pattern.check(&name).is_none());
     }
 
     #[test]
@@ -296,8 +301,8 @@ mod tests {
             .build()
             .unwrap();
 
-        let name = "20231028-235959-almost midnight.jpg";
-        let replacement = pattern.check(name).unwrap();
+        let name = PathBuf::from("20231028-235959-almost midnight.jpg");
+        let replacement = pattern.check(&name).unwrap();
 
         assert_eq!(
             String::from("2023-10-28 23h59m59almost midnight.jpg"),
@@ -305,8 +310,8 @@ mod tests {
         );
 
         // Invalid date time
-        let invalid_name = "20230229-256929-whatever.jpg";
-        assert!(pattern.check(invalid_name).is_none());
+        let invalid_name = PathBuf::from("20230229-256929-whatever.jpg");
+        assert!(pattern.check(&invalid_name).is_none());
     }
 
     #[test]
@@ -331,8 +336,8 @@ mod tests {
             .build()
             .unwrap();
 
-        let name = "skfljdlks-20231028-235959-almost midnight.jpg";
-        let replacement = pattern.check(name).unwrap();
+        let name = PathBuf::from("skfljdlks-20231028-235959-almost midnight.jpg");
+        let replacement = pattern.check(&name).unwrap();
 
         assert_eq!(String::from("2023-10-28"), replacement.result());
     }

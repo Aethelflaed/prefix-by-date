@@ -55,11 +55,10 @@ impl<'a> Processing<'a> {
             return Err(Error::not_found(path));
         }
 
-        let file_name = path.file_name().unwrap().to_str().unwrap();
-        let app: &'a Application = self.app;
+        let app: &Application = self.app;
 
         for matcher in self.matchers_mut() {
-            if let Some(replacement) = matcher.check(file_name) {
+            if let Some(replacement) = matcher.check(path) {
                 if matcher.confirmed() {
                     return Ok(replacement);
                 }
