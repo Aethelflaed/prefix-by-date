@@ -1,4 +1,5 @@
 use crate::application::{Application, Confirmation};
+use crate::matcher::Matcher;
 use crate::replacement::Replacement;
 use crate::reporter::Reporter;
 
@@ -6,15 +7,19 @@ mod error;
 pub use error::Error;
 pub type Result<T> = std::result::Result<T, Error>;
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 pub struct Processing<'a> {
     app: &'a Application,
+    matchers: Vec<Box<dyn Matcher>>,
 }
 
 impl<'a> Processing<'a> {
     pub fn new(app: &'a Application) -> Processing<'a> {
-        Self { app }
+        Self {
+            app,
+            matchers: app.matchers.clone(),
+        }
     }
 
     pub fn run(&self, paths: &Vec<PathBuf>) -> Result<()> {
@@ -32,6 +37,10 @@ impl<'a> Processing<'a> {
                 }
                 Err(error) => {
                     self.app.processing_err(path, &error);
+
+                    if let Error::Abort = error {
+                        return Err(error);
+                    }
                 }
             }
         }
@@ -39,27 +48,44 @@ impl<'a> Processing<'a> {
         Ok(())
     }
 
-    pub fn prefix_if_possible(&self, path: &PathBuf) -> Result<Replacement> {
+    pub fn prefix_if_possible(&self, path: &Path) -> Result<Replacement> {
         if !path.try_exists().unwrap() {
             return Err(Error::not_found(path));
         }
 
         let file_name = path.file_name().unwrap().to_str().unwrap();
 
-        for matcher in &self.app.matchers {
+        for matcher in self.matchers() {
             if let Some(replacement) = matcher.check(file_name) {
-                return match self.app.confirm(path, &replacement) {
+                if matcher.confirmed() {
+                    return Ok(replacement);
+                }
+                match self.app.confirm(path, &replacement) {
                     Confirmation::Replace(replacement) => {
-                        Ok(replacement)
+                        return Ok(replacement)
                     }
-                    Confirmation::Accept => {
-                        Ok(replacement)
+                    Confirmation::Accept => return Ok(replacement),
+                    Confirmation::Always => {
+                        matcher.confirm();
+                        return Ok(replacement);
+                    }
+                    Confirmation::Refuse => {}
+                    Confirmation::Ignore => {
+                        matcher.ignore();
+                    }
+                    Confirmation::Abort => {
+                        return Err(Error::Abort);
                     }
                 };
             }
         }
 
         Err(Error::no_match(path))
+    }
+
+    /// Return all non-ignored matchers
+    fn matchers(&self) -> impl Iterator<Item = &Box<dyn Matcher>> + '_ {
+        self.matchers.iter().filter(|matcher| !matcher.ignored())
     }
 
     fn rename(&self, path: &PathBuf, new_name: &str) -> Result<()> {

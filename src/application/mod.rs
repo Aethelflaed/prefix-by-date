@@ -31,9 +31,10 @@ pub struct Application {
 #[allow(dead_code)]
 pub enum Confirmation {
     Accept,
-    //Always,
-    //Refuse,
-    //Ignore,
+    Always,
+    Refuse,
+    Ignore,
+    Abort,
     Replace(Replacement),
 }
 
@@ -160,6 +161,10 @@ impl Application {
 
         match selection {
             0 => return Confirmation::Accept,
+            1 => return Confirmation::Always,
+            2 => return Confirmation::Refuse,
+            3 => return Confirmation::Ignore,
+            4 => return Confirmation::Abort,
             _ => todo!(),
         }
         println!("You chose: {}", items[selection]);

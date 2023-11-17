@@ -6,6 +6,7 @@ pub enum Error {
     Io(io::Error),
     NotFound(PathBuf),
     NoMatch(PathBuf),
+    Abort,
 }
 
 impl error::Error for Error {}
@@ -25,6 +26,9 @@ impl fmt::Display for Error {
             }
             Self::NoMatch(path) => {
                 write!(f, "No match for path: {:?}", path)
+            }
+            Self::Abort => {
+                write!(f, "Abort received, quitting...")
             }
         }
     }

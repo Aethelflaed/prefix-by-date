@@ -1,5 +1,6 @@
 use crate::processing::Error;
 use crate::reporter::Reporter;
+
 use std::cell::Cell;
 use std::path::Path;
 
