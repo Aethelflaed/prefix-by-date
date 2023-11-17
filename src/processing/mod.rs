@@ -1,5 +1,4 @@
 use crate::application::{Application, Confirmation};
-use crate::matcher::Matcher;
 use crate::replacement::Replacement;
 use crate::reporter::Reporter;
 
@@ -7,22 +6,25 @@ mod error;
 pub use error::Error;
 pub type Result<T> = std::result::Result<T, Error>;
 
+mod matcher;
+pub use matcher::Matcher;
+
 use std::path::{Path, PathBuf};
 
 pub struct Processing<'a> {
     app: &'a Application,
-    matchers: Vec<Box<dyn Matcher>>,
+    matchers: Vec<Matcher>,
 }
 
 impl<'a> Processing<'a> {
     pub fn new(app: &'a Application) -> Processing<'a> {
         Self {
             app,
-            matchers: app.matchers.clone(),
+            matchers: app.matchers.iter().map(Matcher::from).collect(),
         }
     }
 
-    pub fn run(&self, paths: &Vec<PathBuf>) -> Result<()> {
+    pub fn run(&mut self, paths: &Vec<PathBuf>) -> Result<()> {
         self.app.count(paths.len());
 
         for path in paths {
@@ -48,19 +50,20 @@ impl<'a> Processing<'a> {
         Ok(())
     }
 
-    pub fn prefix_if_possible(&self, path: &Path) -> Result<Replacement> {
+    pub fn prefix_if_possible(&mut self, path: &Path) -> Result<Replacement> {
         if !path.try_exists().unwrap() {
             return Err(Error::not_found(path));
         }
 
         let file_name = path.file_name().unwrap().to_str().unwrap();
+        let app: &'a Application = self.app;
 
-        for matcher in self.matchers() {
+        for matcher in self.matchers_mut() {
             if let Some(replacement) = matcher.check(file_name) {
                 if matcher.confirmed() {
                     return Ok(replacement);
                 }
-                match self.app.confirm(path, &replacement) {
+                match app.confirm(path, &replacement) {
                     Confirmation::Replace(replacement) => {
                         return Ok(replacement)
                     }
@@ -84,8 +87,8 @@ impl<'a> Processing<'a> {
     }
 
     /// Return all non-ignored matchers
-    fn matchers(&self) -> impl Iterator<Item = &Box<dyn Matcher>> + '_ {
-        self.matchers.iter().filter(|matcher| !matcher.ignored())
+    fn matchers_mut(&mut self) -> impl Iterator<Item = &mut Matcher> + '_ {
+        self.matchers.iter_mut().filter(|matcher| !matcher.ignored())
     }
 
     fn rename(&self, path: &PathBuf, new_name: &str) -> Result<()> {

@@ -1,7 +1,6 @@
 use crate::matcher::Matcher;
 use crate::replacement::Replacement;
 
-use std::cell::Cell;
 use std::str::FromStr;
 
 use chrono::{Local, TimeZone};
@@ -13,8 +12,6 @@ pub struct Pattern {
     pub format: String,
     pub name: String,
     pub delimiter: String,
-    confirmed: Cell<bool>,
-    ignored: Cell<bool>,
 }
 
 impl Default for Pattern {
@@ -24,8 +21,6 @@ impl Default for Pattern {
             format: String::from("%Y-%m-%d"),
             name: String::from(""),
             delimiter: String::from(""),
-            confirmed: Cell::<bool>::new(false),
-            ignored: Cell::<bool>::new(false),
         }
     }
 }
@@ -125,22 +120,6 @@ impl Matcher for Pattern {
     fn date_format(&self) -> &str {
         self.format.as_str()
     }
-
-    fn confirmed(&self) -> bool {
-        self.confirmed.get()
-    }
-
-    fn confirm(&self) {
-        self.confirmed.set(true);
-    }
-
-    fn ignored(&self) -> bool {
-        self.ignored.get()
-    }
-
-    fn ignore(&self) {
-        self.ignored.set(true);
-    }
 }
 
 impl PatternBuilder {
@@ -201,8 +180,6 @@ impl PatternBuilder {
                 name: self.name.clone().unwrap(),
                 delimiter: self.delimiter.clone().unwrap_or("".into()),
                 format: self.format.clone(),
-                confirmed: Cell::<bool>::new(false),
-                ignored: Cell::<bool>::new(false),
             })
     }
 }

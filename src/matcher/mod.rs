@@ -1,7 +1,6 @@
 use crate::replacement::Replacement;
 
 use std::boxed::Box;
-use std::cell::Cell;
 
 use chrono::{DateTime, Local};
 use dyn_clone::DynClone;
@@ -21,19 +20,6 @@ pub trait Matcher: DynClone {
     fn delimiter(&self) -> &str;
     /// Format to use for the date
     fn date_format(&self) -> &str;
-
-    /// Check if the matcher needs confirmation
-    ///
-    /// Can we directly used the Replacement given by check or should we ask
-    /// for confirmation?
-    fn confirmed(&self) -> bool;
-    /// Mark a matcher as confirmed
-    fn confirm(&self);
-
-    /// Check if the matcher should be ignored
-    fn ignored(&self) -> bool;
-    /// Mark the matcher as ignored
-    fn ignore(&self);
 }
 
 dyn_clone::clone_trait_object!(Matcher);
@@ -42,8 +28,6 @@ dyn_clone::clone_trait_object!(Matcher);
 pub struct PredeterminedDate {
     pub date_time: DateTime<Local>,
     pub format: String,
-    confirmed: Cell<bool>,
-    ignored: Cell<bool>,
 }
 
 impl Default for PredeterminedDate {
@@ -51,8 +35,6 @@ impl Default for PredeterminedDate {
         Self {
             date_time: Local::now(),
             format: String::from("%Y-%m-%d"),
-            confirmed: Cell::<bool>::new(false),
-            ignored: Cell::<bool>::new(false),
         }
     }
 }
@@ -76,22 +58,6 @@ impl Matcher for PredeterminedDate {
 
     fn date_format(&self) -> &str {
         self.format.as_str()
-    }
-
-    fn confirmed(&self) -> bool {
-        self.confirmed.get()
-    }
-
-    fn confirm(&self) {
-        self.confirmed.set(true);
-    }
-
-    fn ignored(&self) -> bool {
-        self.ignored.get()
-    }
-
-    fn ignore(&self) {
-        self.ignored.set(true);
     }
 }
 
