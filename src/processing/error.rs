@@ -7,6 +7,7 @@ pub enum Error {
     NotFound(PathBuf),
     NoMatch(PathBuf),
     PathUnwrap(PathBuf, &'static str),
+    Skip(PathBuf),
     Abort,
 }
 
@@ -28,15 +29,18 @@ impl fmt::Display for Error {
             Self::NoMatch(path) => {
                 write!(f, "No match for path: {:?}", path)
             }
-            Self::Abort => {
-                write!(f, "Abort received, quitting...")
-            }
             Self::PathUnwrap(path, op) => {
                 write!(
                     f,
                     "Error unwrapping operationg {:?} for path: {:?}",
                     op, path
                 )
+            }
+            Self::Skip(path) => {
+                write!(f, "Skipping {:?}", path)
+            }
+            Self::Abort => {
+                write!(f, "Abort received, quitting...")
             }
         }
     }

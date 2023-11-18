@@ -37,7 +37,7 @@ impl Reporter for Log {
     /// Report that processing the path yielded an error
     fn processing_err(&self, path: &Path, error: &Error) {
         self.report_path("Error processing path", path);
-        log::error!("{:?}", error);
+        log::error!("{}", error);
     }
     /// Report that processing  the path finished successfully
     fn processing_ok(&self, path: &Path, new_path: &Path) {

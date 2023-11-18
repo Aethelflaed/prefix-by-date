@@ -62,13 +62,13 @@ impl<'a> Processing<'a> {
                     return Ok(replacement);
                 }
                 match app.confirm(path, &replacement) {
-                    Confirmation::Replace(replacement) => {
-                        return Ok(replacement)
-                    }
                     Confirmation::Accept => return Ok(replacement),
                     Confirmation::Always => {
                         matcher.confirm();
                         return Ok(replacement);
+                    }
+                    Confirmation::Skip => {
+                        return Err(Error::Skip(path.to_path_buf()));
                     }
                     Confirmation::Refuse => {}
                     Confirmation::Ignore => {
@@ -76,6 +76,9 @@ impl<'a> Processing<'a> {
                     }
                     Confirmation::Abort => {
                         return Err(Error::Abort);
+                    }
+                    Confirmation::Replace(replacement) => {
+                        return Ok(replacement)
                     }
                 };
             }

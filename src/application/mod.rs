@@ -32,6 +32,7 @@ pub struct Application {
 pub enum Confirmation {
     Accept,
     Always,
+    Skip,
     Refuse,
     Ignore,
     Abort,
@@ -146,6 +147,7 @@ impl Application {
         let items = vec![
             "Yes, accept the rename and continue",
             "Always accept similar rename and continue",
+            "Skip renaming this file",
             "Refuse the rename and continue",
             "Ignore all similar rename and continue",
             "Quit now, refusing this rename",
@@ -159,17 +161,17 @@ impl Application {
             .interact()
             .unwrap();
 
+        println!("You chose: {}", items[selection]);
+
         match selection {
             0 => return Confirmation::Accept,
             1 => return Confirmation::Always,
-            2 => return Confirmation::Refuse,
-            3 => return Confirmation::Ignore,
-            4 => return Confirmation::Abort,
+            2 => return Confirmation::Skip,
+            3 => return Confirmation::Refuse,
+            4 => return Confirmation::Ignore,
+            5 => return Confirmation::Abort,
             _ => todo!(),
         }
-        println!("You chose: {}", items[selection]);
-
-        Confirmation::Accept
     }
 
     fn read_config(&mut self, default_format: &str) -> std::io::Result<()> {
