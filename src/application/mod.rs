@@ -7,6 +7,7 @@ use crate::matcher::{Matcher, Pattern, PredeterminedDate};
 use crate::processing;
 use crate::replacement::Replacement;
 use crate::reporter::{Log, Reporter};
+use crate::ui::Interface;
 
 use std::boxed::Box;
 use std::path::{Path, PathBuf};
@@ -15,17 +16,11 @@ use toml::Table;
 
 type LogResult = std::result::Result<(), log::SetLoggerError>;
 
-#[cfg(feature = "cli")]
-use indicatif::{MultiProgress, ProgressBar};
-
 pub struct Application {
     pub matchers: Vec<Box<dyn Matcher>>,
     pub reporters: Vec<Box<dyn Reporter>>,
     pub cli: Cli,
-    #[cfg(feature = "cli")]
-    bar: Option<ProgressBar>,
-    #[cfg(feature = "cli")]
-    multi_progress: MultiProgress,
+    interface: Box<dyn Interface>,
 }
 
 #[allow(dead_code)]
@@ -39,66 +34,46 @@ pub enum Confirmation {
     Replace(Replacement),
 }
 
-#[allow(clippy::derivable_impls)]
 impl Default for Application {
-    #[cfg(not(feature = "cli"))]
     fn default() -> Self {
-        Self {
-            matchers: Vec::<Box<dyn Matcher>>::default(),
-            reporters: Vec::<Box<dyn Reporter>>::default(),
-            cli: Cli::default(),
-        }
-    }
-
-    #[cfg(feature = "cli")]
-    fn default() -> Self {
-        // We need a hidden ProgressDrawTarget for the tests if we don't
-        // want to polute the output
-        #[cfg(test)]
-        let multi_progress = MultiProgress::with_draw_target(
-            indicatif::ProgressDrawTarget::hidden(),
-        );
-        #[cfg(not(test))]
-        let multi_progress = MultiProgress::new();
+        use crate::ui::NonInteractive;
 
         Self {
             matchers: Vec::<Box<dyn Matcher>>::default(),
             reporters: Vec::<Box<dyn Reporter>>::default(),
             cli: Cli::default(),
-            multi_progress,
-            bar: None,
-        }
-    }
-}
-
-#[cfg(feature = "cli")]
-impl Drop for Application {
-    fn drop(&mut self) {
-        if let Some(bar) = &self.bar {
-            bar.finish();
-            self.multi_progress.remove(bar);
+            interface: Box::new(NonInteractive::new()),
         }
     }
 }
 
 impl Application {
     pub fn new() -> Result<Self> {
-        let mut app = Self::default();
+        use clap::Parser;
+
+        let cli = Cli::parse();
+
+        let mut app = Self {
+            interface: build_interface(&cli),
+            cli,
+            ..Self::default()
+        };
+
         app.setup_log()?;
 
         Ok(app)
     }
 
-    pub fn setup(&mut self, cli: &Cli) -> Result<()> {
-        log::set_max_level(cli.verbose.log_level_filter());
+    pub fn setup(&mut self) -> Result<()> {
+        log::set_max_level(self.cli.verbose.log_level_filter());
 
         let mut format = "%Y-%m-%d";
-        if cli.time {
+        if self.cli.time {
             log::debug!("Prefix by date and time");
             format = "%Y-%m-%d %Hh%Mm%S";
         }
 
-        if cli.today {
+        if self.cli.today {
             log::debug!("Prefix by today's date");
 
             self.matchers.push(Box::new(PredeterminedDate::new(format)));
@@ -106,7 +81,15 @@ impl Application {
 
         self.read_config(format)?;
         self.add_reporter(Box::<Log>::default());
-        self.after_setup(cli)?;
+        self.interface.after_setup(&self.cli);
+
+        Ok(())
+    }
+
+    pub fn run(&mut self) -> Result<()> {
+        use crate::processing::Processing;
+
+        Processing::new(self).run(&self.cli.paths)?;
 
         Ok(())
     }
@@ -121,57 +104,12 @@ impl Application {
         self.reporters.push(reporter);
     }
 
-    #[cfg(not(feature = "cli"))]
-    pub fn confirm(
-        &self,
-        _path: &Path,
-        _replacement: &Replacement,
-    ) -> Confirmation {
-        Confirmation::Accept
-    }
-
-    #[cfg(feature = "cli")]
     pub fn confirm(
         &self,
         path: &Path,
         replacement: &Replacement,
     ) -> Confirmation {
-        use dialoguer::FuzzySelect;
-
-        println!(
-            "{} will be renamed into {}",
-            path.display(),
-            replacement.new_path().unwrap().to_str().unwrap()
-        );
-
-        let items = vec![
-            "Yes, accept the rename and continue",
-            "Always accept similar rename and continue",
-            "Skip renaming this file",
-            "Refuse the rename and continue",
-            "Ignore all similar rename and continue",
-            "Quit now, refusing this rename",
-            "View other possibilities",
-            "Customize the rename",
-        ];
-
-        let selection = FuzzySelect::new()
-            .with_prompt("What do you want to do?")
-            .items(&items)
-            .interact()
-            .unwrap();
-
-        println!("You chose: {}", items[selection]);
-
-        match selection {
-            0 => return Confirmation::Accept,
-            1 => return Confirmation::Always,
-            2 => return Confirmation::Skip,
-            3 => return Confirmation::Refuse,
-            4 => return Confirmation::Ignore,
-            5 => return Confirmation::Abort,
-            _ => todo!(),
-        }
+        self.interface.confirm(path, replacement)
     }
 
     fn read_config(&mut self, default_format: &str) -> std::io::Result<()> {
@@ -193,6 +131,7 @@ impl Application {
     }
 
     fn setup_log(&mut self) -> LogResult {
+        use env_logger::{Builder, Env};
         use systemd_journal_logger::{connected_to_journal, JournalLog};
 
         // If the output streams of this process are directly connected to the
@@ -204,65 +143,17 @@ impl Application {
                 .with_extra_fields(vec![("VERSION", env!("CARGO_PKG_VERSION"))])
                 .install()
         } else {
-            self.setup_env_logger()
+            let env = Env::new()
+                .filter(format!("{}_LOG", env!("CARGO_PKG_NAME")))
+                .write_style(format!("{}_LOG_STYLE", env!("CARGO_PKG_NAME")));
+
+            self.interface.setup_logger(
+                Builder::new()
+                    .filter_level(log::LevelFilter::Trace)
+                    .parse_env(env),
+            )
         }
     }
-
-    #[cfg(feature = "cli")]
-    fn setup_env_logger(&mut self) -> LogResult {
-        use env_logger::{Builder, Env};
-        use indicatif_log_bridge::LogWrapper;
-
-        let env = Env::new()
-            .filter(format!("{}_LOG", env!("CARGO_PKG_NAME")))
-            .write_style(format!("{}_LOG_STYLE", env!("CARGO_PKG_NAME")));
-
-        let logger = Builder::new()
-            .filter_level(log::LevelFilter::Trace)
-            .parse_env(env)
-            .build();
-
-        LogWrapper::new(self.multi_progress.clone(), logger).try_init()
-    }
-
-    #[cfg(not(feature = "cli"))]
-    fn setup_env_logger(&mut self) -> LogResult {
-        use env_logger::{Builder, Env};
-
-        let env = Env::new()
-            .filter(format!("{}_LOG", env!("CARGO_PKG_NAME")))
-            .write_style(format!("{}_LOG_STYLE", env!("CARGO_PKG_NAME")));
-
-        Builder::new()
-            .filter_level(log::LevelFilter::Trace)
-            .parse_env(env)
-            .try_init()
-    }
-
-    #[cfg(feature = "cli")]
-    fn after_setup(&mut self, cli: &Cli) -> Result<()> {
-        self.bar = Some(
-            self.multi_progress
-                .add(ProgressBar::new(cli.paths.len() as u64)),
-        );
-
-        Ok(())
-    }
-
-    #[cfg(not(feature = "cli"))]
-    fn after_setup(&mut self, _cli: &Cli) -> Result<()> {
-        Ok(())
-    }
-
-    #[cfg(feature = "cli")]
-    fn after_proces(&self, _path: &Path) {
-        if let Some(bar) = &self.bar {
-            bar.inc(1);
-        }
-    }
-
-    #[cfg(not(feature = "cli"))]
-    fn after_proces(&self, _path: &Path) {}
 }
 
 impl Reporter for Application {
@@ -279,7 +170,7 @@ impl Reporter for Application {
     }
 
     fn processing_err(&self, path: &Path, error: &processing::Error) {
-        self.after_proces(path);
+        self.interface.after_process(path);
 
         for reporter in &self.reporters {
             reporter.processing_err(path, error);
@@ -287,7 +178,7 @@ impl Reporter for Application {
     }
 
     fn processing_ok(&self, path: &Path, new_path: &Path) {
-        self.after_proces(path);
+        self.interface.after_process(path);
 
         for reporter in &self.reporters {
             reporter.processing_ok(path, new_path);
@@ -302,6 +193,20 @@ fn config_home() -> PathBuf {
             .unwrap()
             .get_config_home(),
     }
+}
+
+#[cfg(not(feature = "cli"))]
+fn build_interface(_cli: &Cli) -> Box<dyn Interface> {
+    use crate::ui::NonInteractive;
+
+    Box::new(NonInteractive::new())
+}
+
+#[cfg(feature = "cli")]
+fn build_interface(cli: &Cli) -> Box<dyn Interface> {
+    use crate::ui::{text::Text, NonInteractive};
+
+    Box::new(Text::new())
 }
 
 #[cfg(test)]

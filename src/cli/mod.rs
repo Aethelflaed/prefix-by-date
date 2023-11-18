@@ -17,9 +17,3 @@ pub struct Cli {
 
     pub paths: Vec<PathBuf>,
 }
-
-impl Cli {
-    pub fn setup() -> Self {
-        Cli::parse()
-    }
-}
