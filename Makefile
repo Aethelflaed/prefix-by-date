@@ -9,4 +9,4 @@ test:
 	make -C tests
 
 try:
-	./target/debug/prefix-by-date -vv tests/2023-10-15\ Hello\ .pdf tests/Hello\ au\ 2023-10-15.pdf tests/IMG-20231117-whatever.jpg tests/IMG-20231117-another.jpg
+	./target/debug/prefix-by-date -i text -vv tests/2023-10-15\ Hello\ .pdf tests/Hello\ au\ 2023-10-15.pdf tests/IMG-20231117-whatever.jpg tests/IMG-20231117-another.jpg
