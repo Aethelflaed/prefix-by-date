@@ -1,13 +1,12 @@
 [cic]
 regex = """
-  (?<start>.+)
+  (?<rest>.+)
   \\s+au\\s+
   (?<year>\\d{4})
   -
   (?<month>\\d{2})
   -
   (?<day>\\d{2})
-  (?<end>\\.[a-z]+)
 """
 delimiter = " "
 
