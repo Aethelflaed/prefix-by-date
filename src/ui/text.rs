@@ -101,12 +101,12 @@ impl Interface for Text {
         println!("You chose: {}", items[selection]);
 
         match selection {
-            0 => return Confirmation::Accept,
-            1 => return Confirmation::Always,
-            2 => return Confirmation::Skip,
-            3 => return Confirmation::Refuse,
-            4 => return Confirmation::Ignore,
-            5 => return Confirmation::Abort,
+            0 => Confirmation::Accept,
+            1 => Confirmation::Always,
+            2 => Confirmation::Skip,
+            3 => Confirmation::Refuse,
+            4 => Confirmation::Ignore,
+            5 => Confirmation::Abort,
             _ => todo!(),
         }
     }
