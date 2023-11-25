@@ -97,12 +97,20 @@ impl Text {
         }
     }
 
-    fn customize(
-        &self,
-        app: &Application,
-        replacement: &Replacement,
-    ) -> Confirmation {
-        Confirmation::Replace(replacement.clone())
+    fn customize(&self, rep: &Replacement) -> Confirmation {
+        use dialoguer::Input;
+
+        let mut replacement = rep.clone();
+
+        let new_file_stem: String = Input::new()
+            .with_prompt("New file name?")
+            .with_initial_text(replacement.new_file_stem)
+            .interact_text()
+            .unwrap();
+
+        replacement.new_file_stem = new_file_stem;
+
+        Confirmation::Replace(replacement)
     }
 }
 
@@ -180,8 +188,8 @@ impl Interface for Text {
                 self.view(app, replacement);
                 self.confirm(app, replacement)
             }
-            7 => self.customize(app, replacement),
-            wtf @ _ => panic!("Unkown option {}", wtf),
+            7 => self.customize(replacement),
+            wtf => panic!("Unkown option {}", wtf),
         }
     }
 }
