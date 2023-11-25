@@ -20,7 +20,7 @@ impl<'a> Processing<'a> {
     pub fn new(app: &'a Application) -> Processing<'a> {
         Self {
             app,
-            matchers: app.matchers.iter().map(Matcher::from).collect(),
+            matchers: app.matchers.iter().map(From::<_>::from).collect(),
         }
     }
 

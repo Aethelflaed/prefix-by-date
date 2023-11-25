@@ -10,16 +10,17 @@ pub struct Matcher {
     matcher: Box<dyn MatcherTrait>,
 }
 
-impl Matcher {
-    #[allow(clippy::borrowed_box)]
-    pub fn from(matcher: &Box<dyn MatcherTrait>) -> Matcher {
+impl From<&Box<dyn MatcherTrait>> for Matcher {
+    fn from(matcher: &Box<dyn MatcherTrait>) -> Self {
         Self {
             confirmed: false,
             ignored: false,
             matcher: matcher.clone(),
         }
     }
+}
 
+impl Matcher {
     pub fn check(&self, path: &Path) -> Option<Replacement> {
         self.matcher.check(path)
     }
