@@ -1,41 +1,34 @@
 [cic]
 regex = """
+  \\A
   (?<rest>.+)
   \\s+au\\s+
-  (?<year>\\d{4})
-  -
-  (?<month>\\d{2})
-  -
+  (?<year>\\d{4})-
+  (?<month>\\d{2})-
   (?<day>\\d{2})
-"""
-delimiter = " "
-
-[whatsapp]
-regex = """
-  (?<start>[A-Z]+)-
-  (?<year>\\d{4})
-  (?<month>\\d{2})
-  (?<day>\\d{2})
-  -
-  (?<end>.+)
+  \\z
 """
 delimiter = " "
 
 [datesuffix]
 regex = """
+  \\A
   (?<start>[A-Za-z0-9 _-]+)[ _-]
-  (?<year>\\d{4})
-  (?<month>\\d{2})
+  (?<year>\\d{4})-?
+  (?<month>\\d{2})-?
   (?<day>\\d{2})
+  \\z
 """
 delimiter = " "
 
 [dateinfix]
 regex = """
+  \\A
   (?<start>.+)[ _-]
   (?<year>\\d{4})-?
   (?<month>\\d{2})-?
   (?<day>\\d{2})
   [ _-](?<end>.+)
+  \\z
 """
 delimiter = " "
