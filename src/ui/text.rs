@@ -96,6 +96,10 @@ impl Text {
             }
         }
     }
+
+    fn customize(&self, app: &Application, replacement: &Replacement) -> Confirmation {
+        Confirmation::Replace(replacement.clone())
+    }
 }
 
 impl Drop for Text {
@@ -172,7 +176,10 @@ impl Interface for Text {
                 self.view(app, replacement);
                 self.confirm(app, replacement)
             }
-            _ => todo!(),
+            7 => {
+                self.customize(app, replacement)
+            }
+            wtf @ _ => panic!("Unkown option {}", wtf),
         }
     }
 }

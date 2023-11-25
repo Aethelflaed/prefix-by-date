@@ -3,6 +3,7 @@ use crate::processing::{Error, Result};
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 
+#[derive(Clone)]
 pub struct Replacement {
     pub path: PathBuf,
     pub new_file_stem: String,
