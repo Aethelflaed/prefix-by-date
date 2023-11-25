@@ -104,7 +104,7 @@ impl Pattern {
 
 impl Matcher for Pattern {
     fn check(&self, path: &Path) -> Option<Replacement> {
-        let mut replacement = Replacement::from(path)?;
+        let mut replacement = Replacement::try_from(path).ok()?;
 
         let file_stem = self
             .regex

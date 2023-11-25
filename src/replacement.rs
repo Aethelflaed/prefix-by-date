@@ -10,18 +10,32 @@ pub struct Replacement {
     pub extension: String,
 }
 
-impl Replacement {
-    pub fn from(path: &Path) -> Option<Self> {
-        let file_stem = path.file_stem().and_then(os_str_to_string)?;
-        let ext = path.extension().and_then(os_str_to_string)?;
+impl TryFrom<&Path> for Replacement {
+    type Error = Error;
 
-        Some(Replacement {
+    fn try_from(path: &Path) -> Result<Self> {
+        let file_stem: String = path
+            .file_stem()
+            .ok_or(Error::PathUnwrap(path.into(), "file_stem"))?
+            .to_str()
+            .ok_or(Error::PathUnwrap(path.into(), "file_stem/to_str"))?
+            .into();
+        let ext: String = path
+            .extension()
+            .ok_or(Error::PathUnwrap(path.into(), "extension"))?
+            .to_str()
+            .ok_or(Error::PathUnwrap(path.into(), "extension/to_str"))?
+            .into();
+
+        Ok(Replacement {
             path: PathBuf::from(path),
             new_file_stem: file_stem,
             extension: ext,
         })
     }
+}
 
+impl Replacement {
     pub fn execute(&self) -> Result<PathBuf> {
         let new_path = self.new_path()?;
         std::fs::rename(&self.path, &new_path)?;
@@ -63,8 +77,8 @@ mod tests {
     }
 
     #[test]
-    fn from() {
-        let replacement = Replacement::from(&path()).unwrap();
+    fn try_from() {
+        let replacement = Replacement::try_from(path().as_path()).unwrap();
 
         assert_eq!(String::from("test"), replacement.str_file_stem().unwrap());
         assert_eq!(path(), replacement.new_path().unwrap());
@@ -72,7 +86,7 @@ mod tests {
 
     #[test]
     fn customized_file_stem() {
-        let mut replacement = Replacement::from(&path()).unwrap();
+        let mut replacement = Replacement::try_from(path().as_path()).unwrap();
         replacement.new_file_stem = String::from("success.txt");
 
         assert_eq!(String::from("test"), replacement.str_file_stem().unwrap());

@@ -41,7 +41,7 @@ impl Default for PredeterminedDate {
 
 impl Matcher for PredeterminedDate {
     fn check(&self, path: &Path) -> Option<Replacement> {
-        let mut replacement = Replacement::from(path)?;
+        let mut replacement = Replacement::try_from(path).ok()?;
         replacement.new_file_stem = format!(
             "{} {}",
             self.date_time.format(self.format.as_str()),
