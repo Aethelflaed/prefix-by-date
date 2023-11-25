@@ -99,10 +99,11 @@ impl Text {
 
     fn customize(&self, rep: &Replacement) -> Confirmation {
         use dialoguer::Input;
+        use dialoguer::theme::ColorfulTheme;
 
         let mut replacement = rep.clone();
 
-        let new_file_stem: String = Input::new()
+        let new_file_stem: String = Input::with_theme(&ColorfulTheme::default())
             .with_prompt("New file name?")
             .with_initial_text(replacement.new_file_stem)
             .interact_text()
@@ -155,6 +156,7 @@ impl Interface for Text {
         replacement: &Replacement,
     ) -> Confirmation {
         use dialoguer::FuzzySelect;
+        use dialoguer::theme::ColorfulTheme;
 
         println!("Proceed with {}?", ReplacementDisplay::from(replacement));
 
@@ -169,7 +171,7 @@ impl Interface for Text {
             "Customize the rename",
         ];
 
-        let selection = FuzzySelect::new()
+        let selection = FuzzySelect::with_theme(&ColorfulTheme::default())
             .with_prompt("What do you want to do?")
             .items(&items)
             .interact()
