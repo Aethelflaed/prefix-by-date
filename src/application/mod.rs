@@ -222,10 +222,13 @@ mod tests {
     use temp_env::with_var;
 
     fn cli() -> Cli {
+        use crate::cli::Interactive;
+
         Cli {
             verbose: clap_verbosity_flag::Verbosity::new(0, 0),
             today: false,
             time: false,
+            interactive: Interactive::Off,
             paths: vec![],
         }
     }
@@ -281,8 +284,11 @@ regex = """
             ..cli()
         };
 
-        let mut app = Application::default();
-        with_config(|| app.setup(&cli).unwrap());
+        let mut app = Application {
+            cli,
+            ..Application::default()
+        };
+        with_config(|| app.setup().unwrap());
 
         assert_eq!(3, app.matchers.len());
         assert_eq!("Predetermined date", app.matchers[0].name());
@@ -293,14 +299,21 @@ regex = """
     #[test]
     fn time() {
         with_config(|| {
-            let mut cli = cli();
-            let mut app = Application::default();
-            app.setup(&cli).unwrap();
+            let mut app = Application {
+                cli: cli(),
+                ..Application::default()
+            };
+            app.setup().unwrap();
             assert_eq!("%Y-%m-%d", app.matchers[0].date_format());
 
-            cli.time = true;
-            app = Application::default();
-            app.setup(&cli).unwrap();
+            app = Application {
+                cli: Cli {
+                    time: true,
+                    ..cli()
+                },
+                ..Application::default()
+            };
+            app.setup().unwrap();
             assert_eq!("%Y-%m-%d %Hh%Mm%S", app.matchers[0].date_format());
         })
     }
@@ -320,9 +333,11 @@ regex = """
 
     #[test]
     fn read_config() {
-        let mut cli = cli();
-        let mut app = Application::default();
-        with_config(|| app.setup(&cli).unwrap());
+        let mut app = Application {
+            cli: cli(),
+            ..Application::default()
+        };
+        with_config(|| app.setup().unwrap());
 
         assert_eq!(2, app.matchers.len());
         assert_eq!("whatsapp", app.matchers[0].name());
@@ -330,9 +345,14 @@ regex = """
         assert_eq!("cic", app.matchers[1].name());
         assert_eq!("%Y-%m-%d", app.matchers[1].date_format());
 
-        cli.time = true;
-        app = Application::default();
-        with_config(|| app.setup(&cli).unwrap());
+        app = Application {
+            cli: Cli {
+                time: true,
+                ..cli()
+            },
+            ..Application::default()
+        };
+        with_config(|| app.setup().unwrap());
 
         assert_eq!(2, app.matchers.len());
         assert_eq!("whatsapp", app.matchers[0].name());
