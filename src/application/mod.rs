@@ -104,12 +104,8 @@ impl Application {
         self.reporters.push(reporter);
     }
 
-    pub fn confirm(
-        &self,
-        path: &Path,
-        replacement: &Replacement,
-    ) -> Confirmation {
-        self.interface.confirm(self, path, replacement)
+    pub fn confirm(&self, replacement: &Replacement) -> Confirmation {
+        self.interface.confirm(self, replacement)
     }
 
     fn read_config(&mut self, default_format: &str) -> std::io::Result<()> {

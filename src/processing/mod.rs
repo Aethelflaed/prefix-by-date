@@ -59,7 +59,7 @@ impl<'a> Processing<'a> {
                 if matcher.confirmed() {
                     return Ok(replacement);
                 }
-                match app.confirm(path, &replacement) {
+                match app.confirm(&replacement) {
                     Confirmation::Accept => return Ok(replacement),
                     Confirmation::Always => {
                         matcher.confirm();

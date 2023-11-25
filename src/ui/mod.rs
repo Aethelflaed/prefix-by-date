@@ -13,13 +13,12 @@ pub mod text;
 
 pub trait Interface {
     fn setup_logger(&mut self, logger_builder: &mut Builder) -> LogResult;
-    fn after_setup(&mut self, cli: &Cli, matchers: &Vec<Box<dyn Matcher>>);
+    fn after_setup(&mut self, cli: &Cli, matchers: &[Box<dyn Matcher>]);
     fn after_process(&self, path: &Path);
 
     fn confirm(
         &self,
         app: &Application,
-        path: &Path,
         replacement: &Replacement,
     ) -> Confirmation;
 }
@@ -36,13 +35,12 @@ impl Interface for NonInteractive {
     fn setup_logger(&mut self, logger_builder: &mut Builder) -> LogResult {
         logger_builder.try_init()
     }
-    fn after_setup(&mut self, _cli: &Cli, _matchers: &Vec<Box<dyn Matcher>>) {}
+    fn after_setup(&mut self, _cli: &Cli, _matchers: &[Box<dyn Matcher>]) {}
     fn after_process(&self, _path: &Path) {}
 
     fn confirm(
         &self,
         _app: &Application,
-        _path: &Path,
         _replacement: &Replacement,
     ) -> Confirmation {
         Confirmation::Accept
