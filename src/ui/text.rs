@@ -11,11 +11,14 @@ use std::fmt;
 use std::path::Path;
 
 use env_logger::Builder;
+
 use indicatif::{MultiProgress, ProgressBar};
+use dialoguer::theme::ColorfulTheme;
 
 type LogResult = std::result::Result<(), log::SetLoggerError>;
 
 pub struct Text {
+    theme: ColorfulTheme,
     bar: Option<ProgressBar>,
     multi_progress: MultiProgress,
     matcher_name_length: usize,
@@ -56,22 +59,19 @@ impl Text {
     pub fn new() -> Self {
         // We need a hidden ProgressDrawTarget for the tests if we don't
         // want to polute the output
-        let multi_progress = MultiProgress::with_draw_target(
+        Self::build(MultiProgress::with_draw_target(
             indicatif::ProgressDrawTarget::hidden(),
-        );
-
-        Self {
-            multi_progress,
-            bar: None,
-            matcher_name_length: 0,
-        }
+        ))
     }
 
     #[cfg(not(test))]
     pub fn new() -> Self {
-        let multi_progress = MultiProgress::new();
+        Self::build(MultiProgress::new())
+    }
 
+    fn build(multi_progress: MultiProgress) -> Self {
         Self {
+            theme: ColorfulTheme::default(),
             multi_progress,
             bar: None,
             matcher_name_length: 0,
@@ -99,11 +99,10 @@ impl Text {
 
     fn customize(&self, rep: &Replacement) -> Confirmation {
         use dialoguer::Input;
-        use dialoguer::theme::ColorfulTheme;
 
         let mut replacement = rep.clone();
 
-        let new_file_stem: String = Input::with_theme(&ColorfulTheme::default())
+        let new_file_stem: String = Input::with_theme(&self.theme)
             .with_prompt("New file name?")
             .with_initial_text(replacement.new_file_stem)
             .interact_text()
@@ -156,7 +155,6 @@ impl Interface for Text {
         replacement: &Replacement,
     ) -> Confirmation {
         use dialoguer::FuzzySelect;
-        use dialoguer::theme::ColorfulTheme;
 
         println!("Proceed with {}?", ReplacementDisplay::from(replacement));
 
@@ -171,7 +169,7 @@ impl Interface for Text {
             "Customize the rename",
         ];
 
-        let selection = FuzzySelect::with_theme(&ColorfulTheme::default())
+        let selection = FuzzySelect::with_theme(&self.theme)
             .with_prompt("What do you want to do?")
             .items(&items)
             .interact()
