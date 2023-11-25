@@ -81,7 +81,7 @@ impl Application {
 
         self.read_config(format)?;
         self.add_reporter(Box::<Log>::default());
-        self.interface.after_setup(&self.cli);
+        self.interface.after_setup(&self.cli, &self.matchers);
 
         Ok(())
     }
@@ -109,7 +109,7 @@ impl Application {
         path: &Path,
         replacement: &Replacement,
     ) -> Confirmation {
-        self.interface.confirm(path, replacement)
+        self.interface.confirm(self, path, replacement)
     }
 
     fn read_config(&mut self, default_format: &str) -> std::io::Result<()> {

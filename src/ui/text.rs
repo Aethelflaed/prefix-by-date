@@ -1,10 +1,12 @@
 #![cfg(feature = "cli")]
 
-use crate::application::Confirmation;
+use crate::application::{Application, Confirmation};
 use crate::cli::Cli;
+use crate::matcher::Matcher;
 use crate::replacement::Replacement;
 use crate::ui::Interface;
 
+use std::boxed::Box;
 use std::path::Path;
 
 use env_logger::Builder;
@@ -15,6 +17,7 @@ type LogResult = std::result::Result<(), log::SetLoggerError>;
 pub struct Text {
     bar: Option<ProgressBar>,
     multi_progress: MultiProgress,
+    matcher_name_length: usize,
 }
 
 impl Text {
@@ -29,6 +32,7 @@ impl Text {
         Self {
             multi_progress,
             bar: None,
+            matcher_name_length: 0,
         }
     }
 
@@ -39,6 +43,44 @@ impl Text {
         Self {
             multi_progress,
             bar: None,
+            matcher_name_length: 0,
+        }
+    }
+
+    fn view(&self, app: &Application, path: &Path, _replacement: &Replacement) {
+        use dialoguer::console::{pad_str, Alignment};
+
+        for matcher in &app.matchers {
+            if let Some(replacement) = matcher.check(path) {
+                print!(
+                    "{}: ",
+                    pad_str(
+                        matcher.name(),
+                        self.matcher_name_length,
+                        Alignment::Left,
+                        None
+                    )
+                );
+
+                self.present_replacement(&path, &replacement);
+                println!("");
+            }
+        }
+    }
+
+    fn present_replacement(&self, path: &Path, replacement: &Replacement) {
+        use dialoguer::console::style;
+        use diff::Result::*;
+
+        for diff in diff::chars(
+            path.to_str().unwrap(),
+            &replacement.new_path().unwrap().to_str().unwrap(),
+        ) {
+            match diff {
+                Left(ch) => print!("{}", style(ch).red()),
+                Right(ch) => print!("{}", style(ch).green()),
+                Both(ch, _) => print!("{}", style(ch)),
+            }
         }
     }
 }
@@ -60,11 +102,17 @@ impl Interface for Text {
 
         LogWrapper::new(self.multi_progress.clone(), logger).try_init()
     }
-    fn after_setup(&mut self, cli: &Cli) {
+    fn after_setup(&mut self, cli: &Cli, matchers: &Vec<Box<dyn Matcher>>) {
         self.bar = Some(
             self.multi_progress
                 .add(ProgressBar::new(cli.paths.len() as u64)),
         );
+
+        if let Some(matcher) =
+            matchers.iter().max_by_key(|matcher| matcher.name().len())
+        {
+            self.matcher_name_length = matcher.name().len();
+        }
     }
     fn after_process(&self, _path: &Path) {
         if let Some(bar) = &self.bar {
@@ -72,14 +120,17 @@ impl Interface for Text {
         }
     }
 
-    fn confirm(&self, path: &Path, replacement: &Replacement) -> Confirmation {
+    fn confirm(
+        &self,
+        app: &Application,
+        path: &Path,
+        replacement: &Replacement,
+    ) -> Confirmation {
         use dialoguer::FuzzySelect;
 
-        println!(
-            "{} will be renamed into {}",
-            path.display(),
-            replacement.new_path().unwrap().to_str().unwrap()
-        );
+        print!("Proceed with ");
+        self.present_replacement(&path, &replacement);
+        println!("?");
 
         let items = vec![
             "Yes, accept the rename and continue",
@@ -107,6 +158,10 @@ impl Interface for Text {
             3 => Confirmation::Refuse,
             4 => Confirmation::Ignore,
             5 => Confirmation::Abort,
+            6 => {
+                self.view(app, path, replacement);
+                self.confirm(app, path, replacement)
+            }
             _ => todo!(),
         }
     }
