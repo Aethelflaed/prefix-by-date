@@ -12,8 +12,8 @@ use std::path::Path;
 
 use env_logger::Builder;
 
-use indicatif::{MultiProgress, ProgressBar};
 use dialoguer::theme::ColorfulTheme;
+use indicatif::{MultiProgress, ProgressBar};
 
 type LogResult = std::result::Result<(), log::SetLoggerError>;
 
@@ -98,7 +98,7 @@ impl Text {
     }
 
     fn customize(&self, rep: &Replacement) -> Confirmation {
-        use dialoguer::Input;
+        use dialoguer::{Confirm, Input};
 
         let mut replacement = rep.clone();
 
@@ -110,7 +110,19 @@ impl Text {
 
         replacement.new_file_stem = new_file_stem;
 
-        Confirmation::Replace(replacement)
+        let confirmed = Confirm::with_theme(&self.theme)
+            .with_prompt(format!(
+                "Proceed with {}?",
+                ReplacementDisplay::from(&replacement)
+            ))
+            .interact()
+            .unwrap();
+
+        if confirmed {
+            Confirmation::Replace(replacement)
+        } else {
+            Confirmation::Abort
+        }
     }
 }
 
@@ -188,7 +200,10 @@ impl Interface for Text {
                 self.view(app, replacement);
                 self.confirm(app, replacement)
             }
-            7 => self.customize(replacement),
+            7 => match self.customize(replacement) {
+                Confirmation::Abort => self.confirm(app, replacement),
+                other => other,
+            },
             wtf => panic!("Unkown option {}", wtf),
         }
     }
