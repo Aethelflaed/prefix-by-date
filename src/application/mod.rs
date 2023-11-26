@@ -174,27 +174,20 @@ fn config_home() -> PathBuf {
     }
 }
 
-#[cfg(not(feature = "cli"))]
-fn build_interface(_cli: &Cli) -> Box<dyn Interface> {
-    use crate::ui::NonInteractive;
-
-    Box::new(NonInteractive::new())
-}
-
-#[cfg(feature = "cli")]
 fn build_interface(cli: &Cli) -> Box<dyn Interface> {
     use crate::cli::Interactive;
-    use crate::ui::{text::Text, NonInteractive};
+    use crate::ui::{Gui, NonInteractive, Text};
     use systemd_journal_logger::connected_to_journal;
 
     if connected_to_journal() {
         return Box::new(NonInteractive::new());
     }
-    if let Interactive::Off = cli.interactive {
-        return Box::new(NonInteractive::new());
-    }
 
-    Box::new(Text::new())
+    match cli.interactive {
+        Interactive::Text if cfg!(feature = "cli") => Box::new(Text::new()),
+        Interactive::Gui if cfg!(feature = "gui") => Box::new(Gui::new()),
+        _ => Box::new(NonInteractive::new()),
+    }
 }
 
 #[cfg(test)]

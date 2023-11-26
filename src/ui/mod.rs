@@ -9,7 +9,18 @@ use std::path::Path;
 use env_logger::Builder;
 type LogResult = std::result::Result<(), log::SetLoggerError>;
 
-pub mod text;
+mod gui;
+mod text;
+
+#[cfg(feature = "cli")]
+pub use text::Text;
+#[cfg(not(feature = "cli"))]
+pub use NonInteractive as Text;
+
+#[cfg(feature = "gui")]
+pub use gui::Gui;
+#[cfg(not(feature = "gui"))]
+pub use NonInteractive as Gui;
 
 pub trait Interface {
     fn setup_logger(&mut self, logger_builder: &mut Builder) -> LogResult;
