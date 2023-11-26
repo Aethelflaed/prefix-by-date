@@ -3,7 +3,6 @@ mod cli;
 mod matcher;
 mod processing;
 mod replacement;
-mod reporter;
 mod ui;
 
 use application::{Application, Result};

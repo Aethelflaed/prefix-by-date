@@ -1,18 +1,20 @@
-mod error;
-pub use error::Error;
-pub type Result<T> = std::result::Result<T, Error>;
-
 use crate::cli::Cli;
 use crate::matcher::{Matcher, Pattern, PredeterminedDate};
 use crate::processing;
 use crate::replacement::Replacement;
-use crate::reporter::LogReporter;
 use crate::ui::Interface;
 
 use std::boxed::Box;
 use std::path::{Path, PathBuf};
 
 use toml::Table;
+
+mod log_reporter;
+use log_reporter::LogReporter;
+
+mod error;
+pub use error::Error;
+pub type Result<T> = std::result::Result<T, Error>;
 
 type LogResult = std::result::Result<(), log::SetLoggerError>;
 
