@@ -1,6 +1,5 @@
 use crate::application::{Application, Confirmation};
 use crate::replacement::Replacement;
-use crate::reporter::Reporter;
 
 mod error;
 pub use error::Error;
@@ -25,8 +24,6 @@ impl<'a> Processing<'a> {
     }
 
     pub fn run(&mut self, paths: &Vec<PathBuf>) -> Result<()> {
-        self.app.count(paths.len());
-
         for path in paths {
             self.app.processing(path);
 
@@ -35,7 +32,7 @@ impl<'a> Processing<'a> {
                 .and_then(|replacement| replacement.execute())
             {
                 Ok(replacement) => {
-                    self.app.processing_ok(path, &replacement);
+                    self.app.processing_ok(&replacement);
                 }
                 Err(Error::Abort) => return Err(Error::Abort),
                 Err(error) => {

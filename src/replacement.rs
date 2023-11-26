@@ -37,11 +37,11 @@ impl TryFrom<&Path> for Replacement {
 }
 
 impl Replacement {
-    pub fn execute(&self) -> Result<PathBuf> {
+    pub fn execute(&self) -> Result<Self> {
         let new_path = self.new_path()?;
         std::fs::rename(&self.path, &new_path)?;
 
-        Ok(new_path)
+        Ok(self.clone())
     }
 
     pub fn str_file_stem(&self) -> Option<String> {

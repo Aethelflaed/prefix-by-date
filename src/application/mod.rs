@@ -6,7 +6,7 @@ use crate::cli::Cli;
 use crate::matcher::{Matcher, Pattern, PredeterminedDate};
 use crate::processing;
 use crate::replacement::Replacement;
-use crate::reporter::{Log, Reporter};
+use crate::reporter::LogReporter;
 use crate::ui::Interface;
 
 use std::boxed::Box;
@@ -18,8 +18,8 @@ type LogResult = std::result::Result<(), log::SetLoggerError>;
 
 pub struct Application {
     pub matchers: Vec<Box<dyn Matcher>>,
-    pub reporters: Vec<Box<dyn Reporter>>,
     pub cli: Cli,
+    reporter: LogReporter,
     interface: Box<dyn Interface>,
 }
 
@@ -40,8 +40,8 @@ impl Default for Application {
 
         Self {
             matchers: Vec::<Box<dyn Matcher>>::default(),
-            reporters: Vec::<Box<dyn Reporter>>::default(),
             cli: Cli::default(),
+            reporter: LogReporter::default(),
             interface: Box::new(NonInteractive::new()),
         }
     }
@@ -80,7 +80,6 @@ impl Application {
         }
 
         self.read_config(format)?;
-        self.add_reporter(Box::<Log>::default());
         self.interface.after_setup(&self.cli, &self.matchers);
 
         Ok(())
@@ -88,6 +87,8 @@ impl Application {
 
     pub fn run(&mut self) -> Result<()> {
         use crate::processing::Processing;
+
+        self.reporter.count(self.cli.paths.len());
 
         Processing::new(self).run(&self.cli.paths)?;
 
@@ -98,10 +99,6 @@ impl Application {
         if !self.matchers.iter().any(|m| m.name() == matcher.name()) {
             self.matchers.push(matcher);
         }
-    }
-
-    pub fn add_reporter(&mut self, reporter: Box<dyn Reporter>) {
-        self.reporters.push(reporter);
     }
 
     pub fn confirm(&self, replacement: &Replacement) -> Confirmation {
@@ -150,35 +147,19 @@ impl Application {
             )
         }
     }
-}
 
-impl Reporter for Application {
-    fn count(&self, number: usize) {
-        for reporter in &self.reporters {
-            reporter.count(number);
-        }
+    pub fn processing(&self, path: &Path) {
+        self.reporter.processing(path);
     }
 
-    fn processing(&self, path: &Path) {
-        for reporter in &self.reporters {
-            reporter.processing(path);
-        }
-    }
-
-    fn processing_err(&self, path: &Path, error: &processing::Error) {
+    pub fn processing_err(&self, path: &Path, error: &processing::Error) {
+        self.reporter.processing_err(path, error);
         self.interface.after_process(path);
-
-        for reporter in &self.reporters {
-            reporter.processing_err(path, error);
-        }
     }
 
-    fn processing_ok(&self, path: &Path, new_path: &Path) {
-        self.interface.after_process(path);
-
-        for reporter in &self.reporters {
-            reporter.processing_ok(path, new_path);
-        }
+    pub fn processing_ok(&self, replacement: &Replacement) {
+        self.reporter.processing_ok(replacement);
+        self.interface.after_process(&replacement.path);
     }
 }
 
