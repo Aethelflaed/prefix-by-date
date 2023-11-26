@@ -26,6 +26,7 @@ pub struct Text {
 
 struct ReplacementDisplay<'a> {
     replacement: &'a Replacement,
+    colored: bool,
 }
 
 impl<'a> fmt::Display for ReplacementDisplay<'a> {
@@ -33,24 +34,45 @@ impl<'a> fmt::Display for ReplacementDisplay<'a> {
         use dialoguer::console::style;
         use diff::Result::*;
 
-        for diff in diff::chars(
-            self.replacement.path.to_str().unwrap(),
-            self.replacement.new_path().unwrap().to_str().unwrap(),
-        ) {
-            match diff {
-                Left(ch) => write!(f, "{}", style(ch).red())?,
-                Right(ch) => write!(f, "{}", style(ch).green())?,
-                Both(ch, _) => write!(f, "{}", style(ch))?,
+        if self.colored {
+            for diff in diff::chars(
+                self.replacement.path.to_str().unwrap(),
+                self.replacement.new_path().unwrap().to_str().unwrap(),
+            ) {
+                match diff {
+                    Left(ch) => write!(f, "{}", style(ch).red())?,
+                    Right(ch) => write!(f, "{}", style(ch).green())?,
+                    Both(ch, _) => write!(f, "{}", style(ch))?,
+                }
             }
-        }
 
-        Ok(())
+            Ok(())
+        } else {
+            write!(
+                f,
+                "{}/{{{} => {}}}.{}",
+                self.replacement.path.parent().unwrap().to_str().unwrap(),
+                self.replacement.path.file_stem().unwrap().to_str().unwrap(),
+                self.replacement.new_file_stem,
+                self.replacement.extension
+            )
+        }
     }
 }
 
 impl<'a> From<&'a Replacement> for ReplacementDisplay<'a> {
     fn from(replacement: &'a Replacement) -> ReplacementDisplay<'a> {
-        Self { replacement }
+        Self {
+            replacement,
+            colored: true,
+        }
+    }
+}
+
+impl<'a> ReplacementDisplay<'a> {
+    pub fn colored(&mut self, value: bool) -> &mut Self {
+        self.colored = value;
+        self
     }
 }
 
@@ -78,12 +100,20 @@ impl Text {
         }
     }
 
-    fn view(&self, app: &Application, replacement: &Replacement) {
+    fn view(
+        &self,
+        app: &Application,
+        replacement: &Replacement,
+    ) -> Confirmation {
         use dialoguer::console::{pad_str, Alignment};
+        use dialoguer::FuzzySelect;
+
+        let mut replacements: Vec<Replacement> = vec![];
+        let mut options: Vec<String> = vec![];
 
         for matcher in &app.matchers {
             if let Some(replacement) = matcher.check(&replacement.path) {
-                println!(
+                options.push(format!(
                     "{}: {}",
                     pad_str(
                         matcher.name(),
@@ -91,9 +121,24 @@ impl Text {
                         Alignment::Left,
                         None
                     ),
-                    ReplacementDisplay::from(&replacement)
-                );
+                    ReplacementDisplay::from(&replacement).colored(false)
+                ));
+                replacements.push(replacement);
             }
+        }
+
+        options.push(String::from("Abort"));
+
+        let selection = FuzzySelect::with_theme(&self.theme)
+            .with_prompt("What do you want to do?")
+            .items(&options)
+            .interact()
+            .unwrap();
+
+        if let Some(replacement) = replacements.get(selection) {
+            Confirmation::Replace(replacement.clone())
+        } else {
+            Confirmation::Abort
         }
     }
 
@@ -187,8 +232,6 @@ impl Interface for Text {
             .interact()
             .unwrap();
 
-        println!("You chose: {}", items[selection]);
-
         match selection {
             0 => Confirmation::Accept,
             1 => Confirmation::Always,
@@ -196,10 +239,10 @@ impl Interface for Text {
             3 => Confirmation::Refuse,
             4 => Confirmation::Ignore,
             5 => Confirmation::Abort,
-            6 => {
-                self.view(app, replacement);
-                self.confirm(app, replacement)
-            }
+            6 => match self.view(app, replacement) {
+                Confirmation::Abort => self.confirm(app, replacement),
+                other => other,
+            },
             7 => match self.customize(replacement) {
                 Confirmation::Abort => self.confirm(app, replacement),
                 other => other,
