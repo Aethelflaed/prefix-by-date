@@ -1,6 +1,7 @@
 use crate::processing::{Error, Result};
 
 use std::ffi::OsStr;
+use std::fmt;
 use std::path::{Path, PathBuf};
 
 #[derive(Clone)]
@@ -94,5 +95,18 @@ mod tests {
             PathBuf::from("/this/is/a/success.txt.pdf"),
             replacement.new_path().unwrap()
         );
+    }
+}
+
+impl fmt::Display for Replacement {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{}/{{{} => {}}}.{}",
+            self.path.parent().unwrap().to_str().unwrap(),
+            self.path.file_stem().unwrap().to_str().unwrap(),
+            self.new_file_stem,
+            self.extension
+        )
     }
 }

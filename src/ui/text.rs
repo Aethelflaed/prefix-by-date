@@ -26,7 +26,6 @@ pub struct Text {
 
 struct ReplacementDisplay<'a> {
     replacement: &'a Replacement,
-    colored: bool,
 }
 
 impl<'a> fmt::Display for ReplacementDisplay<'a> {
@@ -34,45 +33,24 @@ impl<'a> fmt::Display for ReplacementDisplay<'a> {
         use dialoguer::console::style;
         use diff::Result::*;
 
-        if self.colored {
-            for diff in diff::chars(
-                self.replacement.path.to_str().unwrap(),
-                self.replacement.new_path().unwrap().to_str().unwrap(),
-            ) {
-                match diff {
-                    Left(ch) => write!(f, "{}", style(ch).red())?,
-                    Right(ch) => write!(f, "{}", style(ch).green())?,
-                    Both(ch, _) => write!(f, "{}", style(ch))?,
-                }
+        for diff in diff::chars(
+            self.replacement.path.to_str().unwrap(),
+            self.replacement.new_path().unwrap().to_str().unwrap(),
+        ) {
+            match diff {
+                Left(ch) => write!(f, "{}", style(ch).red())?,
+                Right(ch) => write!(f, "{}", style(ch).green())?,
+                Both(ch, _) => write!(f, "{}", style(ch))?,
             }
-
-            Ok(())
-        } else {
-            write!(
-                f,
-                "{}/{{{} => {}}}.{}",
-                self.replacement.path.parent().unwrap().to_str().unwrap(),
-                self.replacement.path.file_stem().unwrap().to_str().unwrap(),
-                self.replacement.new_file_stem,
-                self.replacement.extension
-            )
         }
+
+        Ok(())
     }
 }
 
 impl<'a> From<&'a Replacement> for ReplacementDisplay<'a> {
     fn from(replacement: &'a Replacement) -> ReplacementDisplay<'a> {
-        Self {
-            replacement,
-            colored: true,
-        }
-    }
-}
-
-impl<'a> ReplacementDisplay<'a> {
-    pub fn colored(&mut self, value: bool) -> &mut Self {
-        self.colored = value;
-        self
+        Self { replacement }
     }
 }
 
@@ -121,7 +99,7 @@ impl Text {
                         Alignment::Left,
                         None
                     ),
-                    ReplacementDisplay::from(&replacement).colored(false)
+                    replacement
                 ));
                 replacements.push(replacement);
             }
