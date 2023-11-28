@@ -9,7 +9,7 @@ pub mod pattern;
 pub use pattern::Pattern;
 
 /// Match a file to be renamed
-pub trait Matcher: DynClone {
+pub trait Matcher: DynClone + Send {
     /// Check if the given path should be replaced by the matcher and
     /// if so, return the appropriate Replacement
     fn check(&self, path: &Path) -> Option<Replacement>;

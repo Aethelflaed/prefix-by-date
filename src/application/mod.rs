@@ -1,16 +1,15 @@
 use crate::cli::Cli;
 use crate::matcher::{Matcher, Pattern, PredeterminedDate};
-use crate::processing;
 use crate::replacement::Replacement;
-use crate::ui::Interface;
+use crate::ui;
 
 use std::boxed::Box;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use toml::Table;
 
 mod log_reporter;
-use log_reporter::LogReporter;
+pub use log_reporter::LogReporter;
 
 mod error;
 pub use error::Error;
@@ -21,8 +20,7 @@ type LogResult = std::result::Result<(), log::SetLoggerError>;
 pub struct Application {
     pub matchers: Vec<Box<dyn Matcher>>,
     pub cli: Cli,
-    reporter: LogReporter,
-    interface: Box<dyn Interface>,
+    ui: Box<dyn ui::Interface>,
 }
 
 #[allow(dead_code)]
@@ -43,8 +41,7 @@ impl Default for Application {
         Self {
             matchers: Vec::<Box<dyn Matcher>>::default(),
             cli: Cli::default(),
-            reporter: LogReporter::default(),
-            interface: Box::new(NonInteractive::new()),
+            ui: Box::new(NonInteractive::new()),
         }
     }
 }
@@ -56,7 +53,7 @@ impl Application {
         let cli = Cli::parse();
 
         let mut app = Self {
-            interface: build_interface(&cli),
+            ui: build_interface(&cli),
             cli,
             ..Self::default()
         };
@@ -82,29 +79,18 @@ impl Application {
         }
 
         self.read_config(format)?;
-        self.interface.after_setup(&self.cli, &self.matchers);
 
         Ok(())
     }
 
     pub fn run(&mut self) -> Result<()> {
-        use crate::processing::Processing;
-
-        self.reporter.count(self.cli.paths.len());
-
-        Processing::new(self).run(&self.cli.paths)?;
-
-        Ok(())
+        self.ui.process(&self.matchers, &self.cli.paths)
     }
 
     pub fn add_matcher(&mut self, matcher: Box<dyn Matcher>) {
         if !self.matchers.iter().any(|m| m.name() == matcher.name()) {
             self.matchers.push(matcher);
         }
-    }
-
-    pub fn confirm(&self, replacement: &Replacement) -> Confirmation {
-        self.interface.confirm(self, replacement)
     }
 
     fn read_config(&mut self, default_format: &str) -> std::io::Result<()> {
@@ -142,26 +128,12 @@ impl Application {
                 .filter(format!("{}_LOG", env!("CARGO_PKG_NAME")))
                 .write_style(format!("{}_LOG_STYLE", env!("CARGO_PKG_NAME")));
 
-            self.interface.setup_logger(
+            self.ui.setup_logger(
                 Builder::new()
                     .filter_level(log::LevelFilter::Trace)
                     .parse_env(env),
             )
         }
-    }
-
-    pub fn processing(&self, path: &Path) {
-        self.reporter.processing(path);
-    }
-
-    pub fn processing_err(&self, path: &Path, error: &processing::Error) {
-        self.reporter.processing_err(path, error);
-        self.interface.after_process(path);
-    }
-
-    pub fn processing_ok(&self, replacement: &Replacement) {
-        self.reporter.processing_ok(replacement);
-        self.interface.after_process(&replacement.path);
     }
 }
 
@@ -174,11 +146,12 @@ fn config_home() -> PathBuf {
     }
 }
 
-fn build_interface(cli: &Cli) -> Box<dyn Interface> {
+fn build_interface(cli: &Cli) -> Box<dyn ui::Interface> {
     use crate::cli::Interactive;
     use crate::ui::{Gui, NonInteractive, Text};
     use systemd_journal_logger::connected_to_journal;
 
+    // XXX check if we still connect to journal if we start with GUI via systemd
     if connected_to_journal() {
         return Box::new(NonInteractive::new());
     }

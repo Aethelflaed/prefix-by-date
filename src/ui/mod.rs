@@ -1,10 +1,10 @@
-use crate::application::{Application, Confirmation};
-use crate::cli::Cli;
+use crate::application::{Confirmation, Result};
 use crate::matcher::Matcher;
+use crate::processing::{Communication, Error, Processing};
 use crate::replacement::Replacement;
 
 use std::boxed::Box;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use env_logger::Builder;
 type LogResult = std::result::Result<(), log::SetLoggerError>;
@@ -22,16 +22,16 @@ pub use gui::Gui;
 #[cfg(not(feature = "gui"))]
 pub use NonInteractive as Gui;
 
-pub trait Interface {
+pub trait Interface: Send {
     fn setup_logger(&mut self, logger_builder: &mut Builder) -> LogResult;
-    fn after_setup(&mut self, cli: &Cli, matchers: &[Box<dyn Matcher>]);
-    fn after_process(&self, path: &Path);
 
-    fn confirm(
-        &self,
-        app: &Application,
-        replacement: &Replacement,
-    ) -> Confirmation;
+    fn confirm(&self, replacement: &Replacement) -> Confirmation;
+
+    fn process(
+        &mut self,
+        matchers: &Vec<Box<dyn Matcher>>,
+        paths: &Vec<PathBuf>,
+    ) -> Result<()>;
 }
 
 pub struct NonInteractive {}
@@ -46,14 +46,26 @@ impl Interface for NonInteractive {
     fn setup_logger(&mut self, logger_builder: &mut Builder) -> LogResult {
         logger_builder.try_init()
     }
-    fn after_setup(&mut self, _cli: &Cli, _matchers: &[Box<dyn Matcher>]) {}
-    fn after_process(&self, _path: &Path) {}
 
-    fn confirm(
-        &self,
-        _app: &Application,
-        _replacement: &Replacement,
-    ) -> Confirmation {
+    fn confirm(&self, _replacement: &Replacement) -> Confirmation {
         Confirmation::Accept
+    }
+
+    fn process(
+        &mut self,
+        matchers: &Vec<Box<dyn Matcher>>,
+        paths: &Vec<PathBuf>,
+    ) -> Result<()> {
+        Processing::new(self, &matchers, &paths).run()?;
+        Ok(())
+    }
+}
+
+impl Communication for NonInteractive {
+    fn processing(&self, _path: &Path) {}
+    fn processing_ok(&self, _replacement: &Replacement) {}
+    fn processing_err(&self, _path: &Path, _error: &Error) {}
+    fn confirm(&self, replacement: &Replacement) -> Confirmation {
+        Interface::confirm(self, replacement)
     }
 }

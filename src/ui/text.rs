@@ -1,14 +1,14 @@
 #![cfg(feature = "cli")]
 
-use crate::application::{Application, Confirmation};
-use crate::cli::Cli;
+use crate::application::{Confirmation, Result};
 use crate::matcher::Matcher;
+use crate::processing::{Communication, Error, Processing};
 use crate::replacement::Replacement;
-use crate::ui::Interface;
+use crate::ui;
 
 use std::boxed::Box;
 use std::fmt;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use env_logger::Builder;
 
@@ -22,6 +22,7 @@ pub struct Text {
     bar: Option<ProgressBar>,
     multi_progress: MultiProgress,
     matcher_name_length: usize,
+    matchers: Vec<Box<dyn Matcher>>,
 }
 
 struct ReplacementDisplay<'a> {
@@ -75,21 +76,28 @@ impl Text {
             multi_progress,
             bar: None,
             matcher_name_length: 0,
+            matchers: Default::default(),
         }
     }
 
-    fn view(
-        &self,
-        app: &Application,
-        replacement: &Replacement,
-    ) -> Confirmation {
+    fn inc_progress(&self) {
+        if let Some(bar) = &self.bar {
+            bar.inc(1);
+        }
+    }
+
+    fn ui_confirm(&self, replacement: &Replacement) -> Confirmation {
+        ui::Interface::confirm(self, replacement)
+    }
+
+    fn view(&self, replacement: &Replacement) -> Confirmation {
         use dialoguer::console::{pad_str, Alignment};
         use dialoguer::FuzzySelect;
 
         let mut replacements: Vec<Replacement> = vec![];
         let mut options: Vec<String> = vec![];
 
-        for matcher in &app.matchers {
+        for matcher in &self.matchers {
             if let Some(replacement) = matcher.check(&replacement.path) {
                 options.push(format!(
                     "{}: {}",
@@ -158,7 +166,7 @@ impl Drop for Text {
     }
 }
 
-impl Interface for Text {
+impl ui::Interface for Text {
     fn setup_logger(&mut self, logger_builder: &mut Builder) -> LogResult {
         use indicatif_log_bridge::LogWrapper;
 
@@ -166,29 +174,8 @@ impl Interface for Text {
 
         LogWrapper::new(self.multi_progress.clone(), logger).try_init()
     }
-    fn after_setup(&mut self, cli: &Cli, matchers: &[Box<dyn Matcher>]) {
-        self.bar = Some(
-            self.multi_progress
-                .add(ProgressBar::new(cli.paths.len() as u64)),
-        );
 
-        if let Some(matcher) =
-            matchers.iter().max_by_key(|matcher| matcher.name().len())
-        {
-            self.matcher_name_length = matcher.name().len();
-        }
-    }
-    fn after_process(&self, _path: &Path) {
-        if let Some(bar) = &self.bar {
-            bar.inc(1);
-        }
-    }
-
-    fn confirm(
-        &self,
-        app: &Application,
-        replacement: &Replacement,
-    ) -> Confirmation {
+    fn confirm(&self, replacement: &Replacement) -> Confirmation {
         use dialoguer::FuzzySelect;
 
         println!("Proceed with {}?", ReplacementDisplay::from(replacement));
@@ -217,15 +204,52 @@ impl Interface for Text {
             3 => Confirmation::Refuse,
             4 => Confirmation::Ignore,
             5 => Confirmation::Abort,
-            6 => match self.view(app, replacement) {
-                Confirmation::Abort => self.confirm(app, replacement),
+            6 => match self.view(replacement) {
+                Confirmation::Abort => self.ui_confirm(replacement),
                 other => other,
             },
             7 => match self.customize(replacement) {
-                Confirmation::Abort => self.confirm(app, replacement),
+                Confirmation::Abort => self.ui_confirm(replacement),
                 other => other,
             },
             wtf => panic!("Unkown option {}", wtf),
         }
+    }
+
+    fn process(
+        &mut self,
+        matchers: &Vec<Box<dyn Matcher>>,
+        paths: &Vec<PathBuf>,
+    ) -> Result<()> {
+        self.matchers = matchers.clone();
+
+        self.bar = Some(
+            self.multi_progress
+                .add(ProgressBar::new(paths.len() as u64)),
+        );
+
+        if let Some(matcher) = self
+            .matchers
+            .iter()
+            .max_by_key(|matcher| matcher.name().len())
+        {
+            self.matcher_name_length = matcher.name().len();
+        }
+
+        Processing::new(self, &matchers, &paths).run()?;
+        Ok(())
+    }
+}
+
+impl Communication for Text {
+    fn processing(&self, _path: &Path) {}
+    fn processing_ok(&self, _replacement: &Replacement) {
+        self.inc_progress();
+    }
+    fn processing_err(&self, _path: &Path, _error: &Error) {
+        self.inc_progress();
+    }
+    fn confirm(&self, replacement: &Replacement) -> Confirmation {
+        self.ui_confirm(replacement)
     }
 }

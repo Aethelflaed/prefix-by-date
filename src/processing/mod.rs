@@ -1,4 +1,5 @@
-use crate::application::{Application, Confirmation};
+use crate::application::{Confirmation, LogReporter};
+use crate::matcher::Matcher as MatcherTrait;
 use crate::replacement::Replacement;
 
 mod error;
@@ -8,35 +9,68 @@ pub type Result<T> = std::result::Result<T, Error>;
 mod matcher;
 pub use matcher::Matcher;
 
+use std::boxed::Box;
 use std::path::{Path, PathBuf};
 
-pub struct Processing<'a> {
-    app: &'a Application,
+pub struct Processing<'a, T>
+where
+    T: Communication,
+{
     matchers: Vec<Matcher>,
+    paths: Vec<PathBuf>,
+    interface: &'a T,
+    reporter: LogReporter,
 }
 
-impl<'a> Processing<'a> {
-    pub fn new(app: &'a Application) -> Processing<'a> {
+pub trait Communication {
+    fn processing(&self, path: &Path);
+    fn processing_ok(&self, replacement: &Replacement);
+    fn processing_err(&self, path: &Path, error: &Error);
+    fn confirm(&self, replacement: &Replacement) -> Confirmation;
+}
+
+impl<'a, T> Processing<'a, T>
+where
+    T: Communication,
+{
+    pub fn new(
+        interface: &'a T,
+        matchers: &[Box<dyn MatcherTrait>],
+        paths: &Vec<PathBuf>,
+    ) -> Self {
         Self {
-            app,
-            matchers: app.matchers.iter().map(From::<_>::from).collect(),
+            matchers: matchers.iter().map(From::<_>::from).collect(),
+            paths: paths.clone(),
+            interface,
+            reporter: LogReporter::default(),
         }
     }
 
-    pub fn run(&mut self, paths: &Vec<PathBuf>) -> Result<()> {
-        for path in paths {
-            self.app.processing(path);
+    pub fn run(&mut self) -> Result<()> {
+        self.reporter.count(self.paths.len());
+
+        let paths = self.paths.clone();
+
+        for path in &paths {
+            self.reporter.processing(path);
+            self.interface.processing(path);
 
             match self
                 .prefix_if_possible(path)
                 .and_then(|replacement| replacement.execute())
             {
                 Ok(replacement) => {
-                    self.app.processing_ok(&replacement);
+                    self.reporter.processing_ok(&replacement);
+                    self.interface.processing_ok(&replacement);
                 }
-                Err(Error::Abort) => return Err(Error::Abort),
+                Err(Error::Abort) => {
+                    self.reporter.processing_err(path, &Error::Abort);
+                    self.interface.processing_err(path, &Error::Abort);
+                    return Err(Error::Abort);
+                }
                 Err(error) => {
-                    self.app.processing_err(path, &error);
+                    self.reporter.processing_err(path, &error);
+                    self.interface.processing_err(path, &error);
                 }
             }
         }
@@ -49,14 +83,15 @@ impl<'a> Processing<'a> {
             return Err(Error::not_found(path));
         }
 
-        let app: &Application = self.app;
+        // Get an immutable ref
+        let interface: &T = self.interface;
 
         for matcher in self.matchers_mut() {
             if let Some(replacement) = matcher.check(path) {
                 if matcher.confirmed() {
                     return Ok(replacement);
                 }
-                match app.confirm(&replacement) {
+                match interface.confirm(&replacement) {
                     Confirmation::Accept => return Ok(replacement),
                     Confirmation::Always => {
                         matcher.confirm();
