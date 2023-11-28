@@ -1,4 +1,4 @@
-#![cfg(feature = "cli")]
+#![cfg(feature = "text")]
 
 use crate::application::Result;
 use crate::matcher::Matcher;

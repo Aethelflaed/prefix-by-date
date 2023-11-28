@@ -12,9 +12,9 @@ type LogResult = std::result::Result<(), log::SetLoggerError>;
 mod gui;
 mod text;
 
-#[cfg(feature = "cli")]
+#[cfg(feature = "text")]
 pub use text::Text;
-#[cfg(not(feature = "cli"))]
+#[cfg(not(feature = "text"))]
 pub use NonInteractive as Text;
 
 #[cfg(feature = "gui")]

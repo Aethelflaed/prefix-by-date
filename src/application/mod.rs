@@ -142,7 +142,7 @@ fn build_interface(cli: &Cli) -> Box<dyn ui::Interface> {
     }
 
     match cli.interactive {
-        Interactive::Text if cfg!(feature = "cli") => Box::new(Text::new()),
+        Interactive::Text if cfg!(feature = "text") => Box::new(Text::new()),
         Interactive::Gui if cfg!(feature = "gui") => Box::new(Gui::new()),
         _ => Box::new(NonInteractive::new()),
     }
