@@ -1,4 +1,3 @@
-use crate::application::{Confirmation, LogReporter};
 use crate::matcher::Matcher as MatcherTrait;
 use crate::replacement::Replacement;
 
@@ -8,6 +7,9 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 mod matcher;
 pub use matcher::Matcher;
+
+mod log_reporter;
+use log_reporter::LogReporter;
 
 use std::boxed::Box;
 use std::path::{Path, PathBuf};
@@ -29,6 +31,17 @@ pub trait Communication {
     fn confirm(&self, replacement: &Replacement) -> Confirmation;
 }
 
+#[allow(dead_code)]
+pub enum Confirmation {
+    Accept,
+    Always,
+    Skip,
+    Refuse,
+    Ignore,
+    Abort,
+    Replace(Replacement),
+}
+
 impl<'a, T> Processing<'a, T>
 where
     T: Communication,
@@ -42,7 +55,7 @@ where
             matchers: matchers.iter().map(From::<_>::from).collect(),
             paths: paths.clone(),
             interface,
-            reporter: LogReporter::default(),
+            reporter: Default::default(),
         }
     }
 

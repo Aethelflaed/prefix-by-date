@@ -1,6 +1,6 @@
-use crate::application::{Confirmation, Result};
+use crate::application::Result;
 use crate::matcher::Matcher;
-use crate::processing::{Communication, Error, Processing};
+use crate::processing::{Communication, Confirmation, Error, Processing};
 use crate::replacement::Replacement;
 
 use std::boxed::Box;

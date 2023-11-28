@@ -1,15 +1,11 @@
 use crate::cli::Cli;
 use crate::matcher::{Matcher, Pattern, PredeterminedDate};
-use crate::replacement::Replacement;
 use crate::ui;
 
 use std::boxed::Box;
 use std::path::PathBuf;
 
 use toml::Table;
-
-mod log_reporter;
-pub use log_reporter::LogReporter;
 
 mod error;
 pub use error::Error;
@@ -21,17 +17,6 @@ pub struct Application {
     pub matchers: Vec<Box<dyn Matcher>>,
     pub cli: Cli,
     ui: Box<dyn ui::Interface>,
-}
-
-#[allow(dead_code)]
-pub enum Confirmation {
-    Accept,
-    Always,
-    Skip,
-    Refuse,
-    Ignore,
-    Abort,
-    Replace(Replacement),
 }
 
 impl Default for Application {
