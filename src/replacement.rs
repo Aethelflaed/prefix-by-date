@@ -4,7 +4,7 @@ use std::ffi::OsStr;
 use std::fmt;
 use std::path::{Path, PathBuf};
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Replacement {
     pub path: PathBuf,
     pub new_file_stem: String,
