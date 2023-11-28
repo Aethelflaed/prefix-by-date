@@ -29,8 +29,8 @@ pub trait Interface: Send {
 
     fn process(
         &mut self,
-        matchers: &Vec<Box<dyn Matcher>>,
-        paths: &Vec<PathBuf>,
+        matchers: &[Box<dyn Matcher>],
+        paths: &[PathBuf],
     ) -> Result<()>;
 }
 
@@ -53,10 +53,10 @@ impl Interface for NonInteractive {
 
     fn process(
         &mut self,
-        matchers: &Vec<Box<dyn Matcher>>,
-        paths: &Vec<PathBuf>,
+        matchers: &[Box<dyn Matcher>],
+        paths: &[PathBuf],
     ) -> Result<()> {
-        Processing::new(self, &matchers, &paths).run()?;
+        Processing::new(self, matchers, paths).run()?;
         Ok(())
     }
 }

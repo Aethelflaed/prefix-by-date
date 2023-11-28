@@ -49,11 +49,11 @@ where
     pub fn new(
         interface: &'a T,
         matchers: &[Box<dyn MatcherTrait>],
-        paths: &Vec<PathBuf>,
+        paths: &[PathBuf],
     ) -> Self {
         Self {
             matchers: matchers.iter().map(From::<_>::from).collect(),
-            paths: paths.clone(),
+            paths: paths.to_owned(),
             interface,
             reporter: Default::default(),
         }

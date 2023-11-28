@@ -218,10 +218,10 @@ impl ui::Interface for Text {
 
     fn process(
         &mut self,
-        matchers: &Vec<Box<dyn Matcher>>,
-        paths: &Vec<PathBuf>,
+        matchers: &[Box<dyn Matcher>],
+        paths: &[PathBuf],
     ) -> Result<()> {
-        self.matchers = matchers.clone();
+        self.matchers = matchers.to_owned();
 
         self.bar = Some(
             self.multi_progress
@@ -236,7 +236,7 @@ impl ui::Interface for Text {
             self.matcher_name_length = matcher.name().len();
         }
 
-        Processing::new(self, &matchers, &paths).run()?;
+        Processing::new(self, matchers, paths).run()?;
         Ok(())
     }
 }
