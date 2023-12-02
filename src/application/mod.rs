@@ -60,7 +60,8 @@ impl Application {
         if self.cli.today {
             log::debug!("Prefix by today's date");
 
-            self.matchers.push(Box::new(PredeterminedDate::new(format)));
+            self.matchers
+                .push(Box::new(PredeterminedDate::new(format, self.cli.time)));
         }
 
         self.read_config(format)?;
@@ -73,7 +74,9 @@ impl Application {
     }
 
     pub fn add_matcher(&mut self, matcher: Box<dyn Matcher>) {
-        if !self.matchers.iter().any(|m| m.name() == matcher.name()) {
+        if matcher.time() == self.cli.time
+            && !self.matchers.iter().any(|m| m.name() == matcher.name())
+        {
             self.matchers.push(matcher);
         }
     }
@@ -179,6 +182,20 @@ mod tests {
                 temp.child("patterns.toml")
                     .write_str(
                         r#"
+[whatsapp_time]
+regex = """
+  [A-Z]+-
+  (?<year>\\d{4})
+  (?<month>\\d{2})
+  (?<day>\\d{2})
+  (?<hour>\\d{2})
+  (?<min>\\d{2})
+  (?<sec>\\d{2})
+  -
+  (?<rest>.+)
+"""
+time = true
+
 [whatsapp]
 regex = """
   [A-Z]+-
@@ -288,11 +305,9 @@ regex = """
         };
         with_config(|| app.setup().unwrap());
 
-        assert_eq!(2, app.matchers.len());
-        assert_eq!("whatsapp", app.matchers[0].name());
+        assert_eq!(1, app.matchers.len());
+        assert_eq!("whatsapp_time", app.matchers[0].name());
         assert_eq!("%Y-%m-%d %Hh%Mm%S", app.matchers[0].date_format());
-        assert_eq!("cic", app.matchers[1].name());
-        assert_eq!("%Y-%m-%d %Hh%Mm%S", app.matchers[1].date_format());
     }
 
     #[test]

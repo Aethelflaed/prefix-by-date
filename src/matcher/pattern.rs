@@ -13,6 +13,7 @@ pub struct Pattern {
     pub format: String,
     pub name: String,
     pub delimiter: String,
+    pub time: bool,
 }
 
 impl Default for Pattern {
@@ -22,6 +23,7 @@ impl Default for Pattern {
             format: String::from("%Y-%m-%d"),
             name: String::from(""),
             delimiter: String::from(""),
+            time: false,
         }
     }
 }
@@ -31,6 +33,7 @@ pub struct PatternBuilder {
     pub format: String,
     pub name: Option<String>,
     pub delimiter: Option<String>,
+    pub time: Option<bool>,
 }
 
 impl Default for PatternBuilder {
@@ -40,6 +43,7 @@ impl Default for PatternBuilder {
             format: String::from("%Y-%m-%d"),
             name: None,
             delimiter: None,
+            time: None,
         }
     }
 }
@@ -127,6 +131,10 @@ impl Matcher for Pattern {
     fn date_format(&self) -> &str {
         self.format.as_str()
     }
+
+    fn time(&self) -> bool {
+        self.time
+    }
 }
 
 impl PatternBuilder {
@@ -150,6 +158,11 @@ impl PatternBuilder {
         self
     }
 
+    pub fn time(&mut self, time: bool) -> &mut Self {
+        self.time = Some(time);
+        self
+    }
+
     pub fn deserialize(
         &mut self,
         name: &str,
@@ -166,6 +179,10 @@ impl PatternBuilder {
 
         if let Some(toml::Value::String(delim)) = table.get("delimiter") {
             self.delimiter(delim.as_str());
+        }
+
+        if let Some(toml::Value::Boolean(time)) = table.get("time") {
+            self.time(*time);
         }
 
         if let Some(toml::Value::String(format)) = table.get("format") {
@@ -190,6 +207,7 @@ impl PatternBuilder {
                     .expect("Name is mandatory to build pattern"),
                 delimiter: self.delimiter.clone().unwrap_or("".into()),
                 format: self.format.clone(),
+                time: self.time.unwrap_or(false),
             })
     }
 }
