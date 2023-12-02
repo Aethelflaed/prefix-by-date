@@ -1,7 +1,7 @@
 [Desktop Entry]
 Name=Desktop actions
 Type=Service
-MimeType=application/pdf;
+MimeType=application/pdf;image/jpeg;
 Actions=prefixByDate;prefixByToday;
 
 [Desktop Action prefixByDate]
