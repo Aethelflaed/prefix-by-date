@@ -205,7 +205,7 @@ impl PatternBuilder {
                     .name
                     .clone()
                     .expect("Name is mandatory to build pattern"),
-                delimiter: self.delimiter.clone().unwrap_or("".into()),
+                delimiter: self.delimiter.clone().unwrap_or(" ".into()),
                 format: self.format.clone(),
                 time: self.time.unwrap_or(false),
             })
@@ -234,7 +234,7 @@ mod tests {
             .build()
             .unwrap();
         assert_eq!(String::from("foo"), pattern.name);
-        assert_eq!(String::from(""), pattern.delimiter);
+        assert_eq!(String::from(" "), pattern.delimiter);
         assert_eq!(String::from("foo"), pattern.format);
 
         let pattern2 = Pattern::builder()
@@ -271,7 +271,7 @@ mod tests {
         let mut replacement = pattern.check(&name).unwrap();
 
         assert_eq!(
-            String::from("2023-10-28IMGwhatever"),
+            String::from("2023-10-28 IMG whatever"),
             replacement.new_file_stem
         );
 
@@ -330,7 +330,7 @@ mod tests {
         let replacement = pattern.check(&name).unwrap();
 
         assert_eq!(
-            String::from("2023-10-28 23h59m59almost midnight"),
+            String::from("2023-10-28 23h59m59 almost midnight"),
             replacement.new_file_stem
         );
 
@@ -403,7 +403,7 @@ mod tests {
             let pattern = Pattern::deserialize("foo", &table, "").unwrap();
 
             assert_eq!("foo", pattern.name());
-            assert_eq!("", pattern.delimiter());
+            assert_eq!(" ", pattern.delimiter());
         }
 
         #[test]
