@@ -8,9 +8,8 @@ regex = """
   (?<day>\\d{2})
   \\z
 """
-delimiter = " "
 
-[datesuffix]
+[date_suffix]
 regex = """
   \\A
   (?<start>[A-Za-z0-9 _-]+)[ _-]
@@ -19,9 +18,8 @@ regex = """
   (?<day>\\d{2})
   \\z
 """
-delimiter = " "
 
-[dateinfix]
+[date_infix]
 regex = """
   \\A
   (?<start>.+)[ _-]
@@ -31,4 +29,19 @@ regex = """
   [ _-](?<end>.+)
   \\z
 """
-delimiter = " "
+
+[date_time_infix]
+regex = """
+  \\A
+  (?<start>.+)[ _-]
+  (?<year>\\d{4})-?
+  (?<month>\\d{2})-?
+  (?<day>\\d{2})
+  [ _-]
+  (?<hour>\\d{2})
+  (?<min>\\d{2})
+  (?<sec>\\d{2})
+  [ _-](?<end>.+)
+  \\z
+"""
+time = true

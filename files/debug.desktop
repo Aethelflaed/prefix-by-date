@@ -2,12 +2,17 @@
 Name=Desktop actions
 Type=Service
 MimeType=application/pdf;image/jpeg;
-Actions=prefixByDate;prefixByToday;
+Actions=prefixByDate;prefixByDateTime;prefixByToday;
 
 [Desktop Action prefixByDate]
 Name=Prefix by date
 Icon=edit-entry
 Exec=systemd-run --user /home/geoffroy/src/prefix-by-date/target/debug/prefix-by-date -vvv %F
+
+[Desktop Action prefixByDateTime]
+Name=Prefix by date and time
+Icon=edit-entry
+Exec=systemd-run --user /home/geoffroy/src/prefix-by-date/target/debug/prefix-by-date --time -vvv %F
 
 [Desktop Action prefixByToday]
 Name=Prefix by today's date
