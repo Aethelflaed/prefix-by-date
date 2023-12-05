@@ -13,3 +13,6 @@ text: test
 
 gui: test
 	./target/debug/prefix-by-date -vv -i gui tests/2023-10-15\ Hello\ .pdf tests/Hello\ au\ 2023-10-15.pdf tests/IMG-20231117-whatever.jpg tests/IMG-20231117-another.jpg
+
+journal:
+	journalctl -e --user -t prefix-by-date
