@@ -113,7 +113,7 @@ impl Application {
                 .install()
         } else {
             let name = String::from(env!("CARGO_PKG_NAME"))
-                .replace("-", "_")
+                .replace('-', "_")
                 .to_uppercase();
             let env = Env::new()
                 .filter(format!("{}_LOG", name))
