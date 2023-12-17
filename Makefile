@@ -1,3 +1,5 @@
+export PREFIX_BY_DATE_LOG=error,prefix_by_date=debug
+
 install_debug: files/debug.desktop files/patterns.toml
 	mkdir -p ~/.local/share/kio/servicemenus
 	cp files/debug.desktop ~/.local/share/kio/servicemenus/prefix-by-date.desktop
