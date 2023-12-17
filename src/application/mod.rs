@@ -112,9 +112,12 @@ impl Application {
                 .with_extra_fields(vec![("VERSION", env!("CARGO_PKG_VERSION"))])
                 .install()
         } else {
+            let name = String::from(env!("CARGO_PKG_NAME"))
+                .replace("-", "_")
+                .to_uppercase();
             let env = Env::new()
-                .filter(format!("{}_LOG", env!("CARGO_PKG_NAME")))
-                .write_style(format!("{}_LOG_STYLE", env!("CARGO_PKG_NAME")));
+                .filter(format!("{}_LOG", name))
+                .write_style(format!("{}_LOG_STYLE", name));
 
             self.ui.setup_logger(
                 Builder::new()
