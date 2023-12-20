@@ -119,7 +119,7 @@ impl<'a> ProcessingFront<'a> {
 
 impl<'a> Communication for ProcessingFront<'a> {
     fn processing(&self, path: &Path) {
-        log::info!("Processing: {:?}", path);
+        log::debug!("Processing: {:?}", path);
 
         let mut event_tx = self.event_tx.borrow_mut();
         let sending = event_tx.send(Event::Processing(path.to_path_buf()));
@@ -127,7 +127,7 @@ impl<'a> Communication for ProcessingFront<'a> {
         block_on(sending).expect("Send message on channel");
     }
     fn processing_ok(&self, replacement: &Replacement) {
-        log::info!("Processing ok: {:}", replacement);
+        log::debug!("Processing ok: {:}", replacement);
 
         let mut event_tx = self.event_tx.borrow_mut();
         let sending = event_tx.send(Event::ProcessingOk(replacement.clone()));
@@ -135,7 +135,7 @@ impl<'a> Communication for ProcessingFront<'a> {
         block_on(sending).expect("Send message on channel");
     }
     fn processing_err(&self, path: &Path, error: &Error) {
-        log::info!("Processing error: {:?}: {:?}", path, error);
+        log::debug!("Processing error: {:?}: {:?}", path, error);
 
         let mut event_tx = self.event_tx.borrow_mut();
         let sending = event_tx.send(Event::ProcessingErr(
@@ -150,7 +150,7 @@ impl<'a> Communication for ProcessingFront<'a> {
         let sending = event_tx.send(Event::Confirm(replacement.clone()));
 
         block_on(sending).expect("Send message on channel");
-        log::info!("Confirming replacement: {:}", replacement);
+        log::debug!("Confirming replacement: {:}", replacement);
 
         let receiving =
             async { self.conf_rx.lock().await.select_next_some().await };

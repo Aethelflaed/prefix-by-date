@@ -52,7 +52,7 @@ impl Application for Window {
 
     fn update(&mut self, message: Message) -> Command<Message> {
         use processing::Event;
-        log::error!("Message: {:?}", message);
+        log::debug!("Message: {:?}", message);
 
         match message {
             Message::Processing(event) => {
