@@ -59,8 +59,16 @@ enum Message {
 struct Window {
     matchers: Vec<Box<dyn Matcher>>,
     paths: Vec<PathBuf>,
-    confirmation_sender: Option<std::sync::mpsc::Sender<Confirmation>>,
+    state: State,
     processing: Option<PathBuf>,
+}
+
+#[derive(Default)]
+enum State {
+    #[default]
+    Booting,
+    Processing(processing::Connection),
+    Finished,
 }
 
 impl Application for Window {
@@ -74,7 +82,7 @@ impl Application for Window {
             Window {
                 matchers,
                 paths,
-                confirmation_sender: None,
+                state: Default::default(),
                 processing: None,
             },
             Command::none(),
@@ -90,32 +98,31 @@ impl Application for Window {
         log::error!("Message: {:?}", message);
 
         match message {
-            Message::Processing(event) => match event {
-                Event::Ready(confirmation_sender) => {
-                    self.confirmation_sender = Some(confirmation_sender);
-
-                    Command::none()
-                }
-                Event::Processing(path) => {
-                    self.processing = Some(path);
-
-                    Command::none()
-                }
-                Event::ProcessingOk(_) => {
-                    //self.processing = None;
-                    Command::none()
-                }
-                Event::ProcessingErr(_, _) => {
-                    //self.processing = None;
-                    Command::none()
-                }
-                Event::Confirm(_) => {
-                    if let Some(sender) = &self.confirmation_sender {
-                        let _ = sender.send(Confirmation::Abort);
+            Message::Processing(event) => {
+                match event {
+                    Event::Ready(connection) => {
+                        self.state = State::Processing(connection);
                     }
-                    Command::none()
-                }
-            },
+                    Event::Processing(path) => {
+                        self.processing = Some(path);
+                    }
+                    Event::ProcessingOk(_) => {
+                        //self.processing = None;
+                    }
+                    Event::ProcessingErr(_, _) => {
+                        //self.processing = None;
+                    }
+                    Event::Confirm(_) => {
+                        if let State::Processing(connection) = &mut self.state {
+                            connection.send(Confirmation::Abort);
+                        }
+                    }
+                    Event::Finished | Event::Aborted => {
+                        self.state = State::Finished;
+                    }
+                };
+                Command::none()
+            }
         }
     }
 
