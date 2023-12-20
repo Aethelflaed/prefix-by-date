@@ -302,7 +302,7 @@ fn scrollable_logs(
     use iced::widget::{scrollable, text, Column};
     scrollable(
         Column::with_children(
-            logs.iter().cloned().map(text).map(Element::from).collect(),
+            logs.iter().rev().cloned().map(text).map(Element::from).collect(),
         )
         .width(Length::Fill),
     )
