@@ -48,6 +48,9 @@ pub fn from(interactive: Interactive) -> Box<dyn Interface> {
 pub struct NonInteractive {}
 
 impl NonInteractive {
+    /// Inidcate whether or not this interface is available
+    pub fn available() -> bool { true }
+
     pub fn new() -> Self {
         NonInteractive {}
     }
