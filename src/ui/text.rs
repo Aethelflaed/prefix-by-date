@@ -56,6 +56,16 @@ impl<'a> From<&'a Replacement> for ReplacementDisplay<'a> {
 }
 
 impl Text {
+    /// Inidcate whether or not this interface is available
+    pub fn available() -> bool {
+        // If we are connected_to_journal, it means we're not connected to a
+        // standard terminal so we can't really present
+        !systemd_journal_logger::connected_to_journal() &&
+            // If stdout is not a tty, then we probably don't want interaction
+            // either
+            atty::isnt(atty::Stream::Stdout)
+    }
+
     #[cfg(test)]
     pub fn new() -> Self {
         // We need a hidden ProgressDrawTarget for the tests if we don't

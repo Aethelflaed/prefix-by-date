@@ -38,7 +38,7 @@ impl Application {
         let cli = Cli::parse();
 
         let mut app = Self {
-            ui: build_interface(&cli),
+            ui: ui::from(cli.interactive),
             cli,
             ..Self::default()
         };
@@ -134,17 +134,6 @@ fn config_home() -> PathBuf {
         _ => xdg::BaseDirectories::with_prefix(env!("CARGO_PKG_NAME"))
             .unwrap()
             .get_config_home(),
-    }
-}
-
-fn build_interface(cli: &Cli) -> Box<dyn ui::Interface> {
-    use crate::cli::Interactive;
-    use crate::ui::{Gui, NonInteractive, Text};
-
-    match cli.interactive {
-        Interactive::Text if cfg!(feature = "text") => Box::new(Text::new()),
-        Interactive::Gui if cfg!(feature = "gui") => Box::new(Gui::new()),
-        _ => Box::new(NonInteractive::new()),
     }
 }
 

@@ -1,4 +1,5 @@
 use crate::application::Result;
+use crate::cli::Interactive;
 use crate::matcher::Matcher;
 use crate::processing::{Communication, Confirmation, Error, Processing};
 use crate::replacement::Replacement;
@@ -32,6 +33,16 @@ pub trait Interface: Send {
         matchers: &[Box<dyn Matcher>],
         paths: &[PathBuf],
     ) -> Result<()>;
+}
+
+pub fn from(interactive: Interactive) -> Box<dyn Interface> {
+    match interactive {
+        Interactive::Text if cfg!(feature = "text") && Text::available() => {
+            Box::new(Text::new())
+        }
+        Interactive::Gui if cfg!(feature = "gui") => Box::new(Gui::new()),
+        _ => Box::new(NonInteractive::new()),
+    }
 }
 
 pub struct NonInteractive {}
