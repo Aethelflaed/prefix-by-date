@@ -47,7 +47,7 @@ pub fn connect(
             output
                 .send(Event::Ready(Connection(conf_tx)))
                 .await
-                .unwrap();
+                .expect("Send connection to UI");
 
             let (mut event_tx, mut event_rx) = mpsc::channel(100);
 
@@ -56,13 +56,16 @@ pub fn connect(
             std::thread::spawn(move || {
                 let front =
                     ProcessingFront::new(&mut conf_rx, event_tx.clone());
-                let sending =
-                    match Processing::new(&front, &matchers, &paths).run() {
+                let result = Processing::new(&front, &matchers, &paths).run();
+
+                if !event_tx.is_closed() {
+                    let sending = match result {
                         Ok(_) => event_tx.send(Event::Finished),
                         Err(_) => event_tx.send(Event::Aborted),
                     };
 
-                block_on(sending).expect("Send message on channel");
+                    block_on(sending).expect("Send message on channel");
+                }
             });
 
             // Now we loop for events to send to the GUI
@@ -74,7 +77,7 @@ pub fn connect(
                 }
 
                 if let Some(event) = event_rx.next().await {
-                    output.send(event).await.unwrap();
+                    output.send(event).await.expect("Send message to UI");
                 }
             }
 
@@ -138,12 +141,14 @@ impl<'a> Communication for ProcessingFront<'a> {
         log::debug!("Processing error: {:?}: {:?}", path, error);
 
         let mut event_tx = self.event_tx.borrow_mut();
-        let sending = event_tx.send(Event::ProcessingErr(
-            path.to_path_buf(),
-            format!("{}", error),
-        ));
+        if !event_tx.is_closed() {
+            let sending = event_tx.send(Event::ProcessingErr(
+                path.to_path_buf(),
+                format!("{}", error),
+            ));
 
-        block_on(sending).expect("Send message on channel");
+            block_on(sending).expect("Send message on channel");
+        }
     }
     fn confirm(&self, replacement: &Replacement) -> Confirmation {
         let mut event_tx = self.event_tx.borrow_mut();
@@ -152,8 +157,7 @@ impl<'a> Communication for ProcessingFront<'a> {
         block_on(sending).expect("Send message on channel");
         log::debug!("Confirming replacement: {:}", replacement);
 
-        let receiving =
-            async { self.conf_rx.lock().await.select_next_some().await };
-        block_on(receiving)
+        let receiving = async { self.conf_rx.lock().await.next().await };
+        block_on(receiving).unwrap_or(Confirmation::Abort)
     }
 }
