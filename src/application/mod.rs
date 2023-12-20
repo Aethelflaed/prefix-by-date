@@ -70,6 +70,11 @@ impl Application {
     }
 
     pub fn run(&mut self) -> Result<()> {
+        log::debug!(
+            "Matchers: {:?}",
+            self.matchers.iter().map(|m| m.name()).collect::<Vec<_>>()
+        );
+        log::debug!("Paths: {:?}", self.cli.paths);
         self.ui.process(&self.matchers, &self.cli.paths)
     }
 

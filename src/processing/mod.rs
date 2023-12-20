@@ -77,14 +77,13 @@ where
                     self.reporter.processing_ok(&replacement);
                     self.interface.processing_ok(&replacement);
                 }
-                Err(Error::Abort) => {
-                    self.reporter.processing_err(path, &Error::Abort);
-                    self.interface.processing_err(path, &Error::Abort);
-                    return Err(Error::Abort);
-                }
                 Err(error) => {
                     self.reporter.processing_err(path, &error);
                     self.interface.processing_err(path, &error);
+
+                    if let Error::Abort = error {
+                        return Err(error);
+                    }
                 }
             }
         }
