@@ -12,6 +12,7 @@ use futures::channel::mpsc;
 use futures::executor::block_on;
 use futures::lock::Mutex;
 use futures::sink::SinkExt;
+use futures::stream::FusedStream;
 use futures::StreamExt;
 
 #[derive(Debug, Clone)]
@@ -64,10 +65,25 @@ pub fn connect(
                 block_on(sending).expect("Send message on channel");
             });
 
+            // Now we loop for events to send to the GUI
             loop {
+                // The processing thread might finish, which would drop all
+                // the event_tx, so we need to check if it's terminated here
+                if event_rx.is_terminated() {
+                    break;
+                }
+
                 if let Some(event) = event_rx.next().await {
                     output.send(event).await.unwrap();
                 }
+            }
+
+            loop {
+                // subscription::channel need an infallible future, so we
+                // just loop indefinitely.
+                // We sleep a whole day to yield control to the executor
+                tokio::time::sleep(tokio::time::Duration::from_secs(86_400))
+                    .await;
             }
         },
     )
