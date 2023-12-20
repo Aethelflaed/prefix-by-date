@@ -56,15 +56,15 @@ pub fn connect(
             std::thread::spawn(move || {
                 let front =
                     ProcessingFront::new(&mut conf_rx, event_tx.clone());
-                let result = Processing::new(&front, &matchers, &paths).run();
-
-                if !event_tx.is_closed() {
-                    let sending = match result {
-                        Ok(_) => event_tx.send(Event::Finished),
-                        Err(_) => event_tx.send(Event::Aborted),
+                let result =
+                    match Processing::new(&front, &matchers, &paths).run() {
+                        Ok(_) => Event::Finished,
+                        Err(_) => Event::Aborted,
                     };
 
-                    block_on(sending).expect("Send message on channel");
+                if !event_tx.is_closed() {
+                    block_on(event_tx.send(result))
+                        .expect("Send message on channel");
                 }
             });
 
@@ -118,46 +118,42 @@ impl<'a> ProcessingFront<'a> {
             event_tx: RefCell::new(event_tx),
         }
     }
+
+    // Only return false if the channel is closed
+    fn send(&self, event: Event) -> bool {
+        let mut event_tx = self.event_tx.borrow_mut();
+        if !event_tx.is_closed() {
+            block_on(event_tx.send(event))
+                .expect("Send event from processing thread");
+
+            true
+        } else {
+            false
+        }
+    }
 }
 
 impl<'a> Communication for ProcessingFront<'a> {
     fn processing(&self, path: &Path) {
-        log::debug!("Processing: {:?}", path);
-
-        let mut event_tx = self.event_tx.borrow_mut();
-        let sending = event_tx.send(Event::Processing(path.to_path_buf()));
-
-        block_on(sending).expect("Send message on channel");
+        self.send(Event::Processing(path.to_path_buf()));
     }
     fn processing_ok(&self, replacement: &Replacement) {
-        log::debug!("Processing ok: {:}", replacement);
-
-        let mut event_tx = self.event_tx.borrow_mut();
-        let sending = event_tx.send(Event::ProcessingOk(replacement.clone()));
-
-        block_on(sending).expect("Send message on channel");
+        self.send(Event::ProcessingOk(replacement.clone()));
     }
     fn processing_err(&self, path: &Path, error: &Error) {
-        log::debug!("Processing error: {:?}: {:?}", path, error);
-
-        let mut event_tx = self.event_tx.borrow_mut();
-        if !event_tx.is_closed() {
-            let sending = event_tx.send(Event::ProcessingErr(
-                path.to_path_buf(),
-                format!("{}", error),
-            ));
-
-            block_on(sending).expect("Send message on channel");
-        }
+        self.send(Event::ProcessingErr(
+            path.to_path_buf(),
+            format!("{}", error),
+        ));
     }
     fn confirm(&self, replacement: &Replacement) -> Confirmation {
-        let mut event_tx = self.event_tx.borrow_mut();
-        let sending = event_tx.send(Event::Confirm(replacement.clone()));
-
-        block_on(sending).expect("Send message on channel");
-        log::debug!("Confirming replacement: {:}", replacement);
+        if !self.send(Event::Confirm(replacement.clone())) {
+            return Confirmation::Abort;
+        }
 
         let receiving = async { self.conf_rx.lock().await.next().await };
+        // If we don't get a confirmation, it means the UI is quitting, so we
+        // abort
         block_on(receiving).unwrap_or(Confirmation::Abort)
     }
 }
