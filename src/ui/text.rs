@@ -96,8 +96,45 @@ impl Text {
         }
     }
 
-    fn ui_confirm(&self, replacement: &Replacement) -> Confirmation {
-        ui::Interface::confirm(self, replacement)
+    fn confirm(&self, replacement: &Replacement) -> Confirmation {
+        use dialoguer::FuzzySelect;
+
+        println!("Proceed with {}?", ReplacementDisplay::from(replacement));
+
+        let items = vec![
+            "Yes, accept the rename and continue",
+            "Always accept similar rename and continue",
+            "Skip renaming this file",
+            "Refuse the rename and continue",
+            "Ignore all similar rename and continue",
+            "Quit now, refusing this rename",
+            "View other possibilities",
+            "Customize the rename",
+        ];
+
+        let selection = FuzzySelect::with_theme(&self.theme)
+            .with_prompt("What do you want to do?")
+            .items(&items)
+            .interact()
+            .unwrap();
+
+        match selection {
+            0 => Confirmation::Accept,
+            1 => Confirmation::Always,
+            2 => Confirmation::Skip,
+            3 => Confirmation::Refuse,
+            4 => Confirmation::Ignore,
+            5 => Confirmation::Abort,
+            6 => match self.view(replacement) {
+                Confirmation::Abort => self.confirm(replacement),
+                other => other,
+            },
+            7 => match self.customize(replacement) {
+                Confirmation::Abort => self.confirm(replacement),
+                other => other,
+            },
+            wtf => panic!("Unkown option {}", wtf),
+        }
     }
 
     fn view(&self, replacement: &Replacement) -> Confirmation {
@@ -185,47 +222,6 @@ impl ui::Interface for Text {
         LogWrapper::new(self.multi_progress.clone(), logger).try_init()
     }
 
-    fn confirm(&self, replacement: &Replacement) -> Confirmation {
-        use dialoguer::FuzzySelect;
-
-        println!("Proceed with {}?", ReplacementDisplay::from(replacement));
-
-        let items = vec![
-            "Yes, accept the rename and continue",
-            "Always accept similar rename and continue",
-            "Skip renaming this file",
-            "Refuse the rename and continue",
-            "Ignore all similar rename and continue",
-            "Quit now, refusing this rename",
-            "View other possibilities",
-            "Customize the rename",
-        ];
-
-        let selection = FuzzySelect::with_theme(&self.theme)
-            .with_prompt("What do you want to do?")
-            .items(&items)
-            .interact()
-            .unwrap();
-
-        match selection {
-            0 => Confirmation::Accept,
-            1 => Confirmation::Always,
-            2 => Confirmation::Skip,
-            3 => Confirmation::Refuse,
-            4 => Confirmation::Ignore,
-            5 => Confirmation::Abort,
-            6 => match self.view(replacement) {
-                Confirmation::Abort => self.ui_confirm(replacement),
-                other => other,
-            },
-            7 => match self.customize(replacement) {
-                Confirmation::Abort => self.ui_confirm(replacement),
-                other => other,
-            },
-            wtf => panic!("Unkown option {}", wtf),
-        }
-    }
-
     fn process(
         &mut self,
         matchers: &[Box<dyn Matcher>],
@@ -260,6 +256,6 @@ impl Communication for Text {
         self.inc_progress();
     }
     fn confirm(&self, replacement: &Replacement) -> Confirmation {
-        self.ui_confirm(replacement)
+        Text::confirm(self, replacement)
     }
 }

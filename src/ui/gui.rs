@@ -2,8 +2,6 @@
 
 use crate::application::Result;
 use crate::matcher::Matcher;
-use crate::processing::Confirmation;
-use crate::replacement::Replacement;
 use crate::ui;
 
 use std::path::PathBuf;
@@ -26,10 +24,6 @@ impl Gui {
 impl ui::Interface for Gui {
     fn setup_logger(&mut self, logger_builder: &mut Builder) -> LogResult {
         logger_builder.try_init()
-    }
-
-    fn confirm(&self, _replacement: &Replacement) -> Confirmation {
-        Confirmation::Abort
     }
 
     fn process(

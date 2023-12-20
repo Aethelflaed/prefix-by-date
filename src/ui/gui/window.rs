@@ -6,9 +6,7 @@ use std::path::PathBuf;
 
 use iced::executor;
 use iced::widget::{column, container, text};
-use iced::{
-    Application, Color, Command, Element, Length, Subscription, Theme,
-};
+use iced::{Application, Color, Command, Element, Length, Subscription, Theme};
 
 #[derive(Debug, Clone)]
 pub enum Message {

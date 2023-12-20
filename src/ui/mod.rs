@@ -26,8 +26,6 @@ pub use NonInteractive as Gui;
 pub trait Interface: Send {
     fn setup_logger(&mut self, logger_builder: &mut Builder) -> LogResult;
 
-    fn confirm(&self, replacement: &Replacement) -> Confirmation;
-
     fn process(
         &mut self,
         matchers: &[Box<dyn Matcher>],
@@ -48,8 +46,11 @@ pub fn from(interactive: Interactive) -> Box<dyn Interface> {
 pub struct NonInteractive {}
 
 impl NonInteractive {
+    #[allow(dead_code)]
     /// Inidcate whether or not this interface is available
-    pub fn available() -> bool { true }
+    pub fn available() -> bool {
+        true
+    }
 
     pub fn new() -> Self {
         NonInteractive {}
@@ -59,10 +60,6 @@ impl NonInteractive {
 impl Interface for NonInteractive {
     fn setup_logger(&mut self, logger_builder: &mut Builder) -> LogResult {
         logger_builder.try_init()
-    }
-
-    fn confirm(&self, _replacement: &Replacement) -> Confirmation {
-        Confirmation::Accept
     }
 
     fn process(
@@ -79,7 +76,7 @@ impl Communication for NonInteractive {
     fn processing(&self, _path: &Path) {}
     fn processing_ok(&self, _replacement: &Replacement) {}
     fn processing_err(&self, _path: &Path, _error: &Error) {}
-    fn confirm(&self, replacement: &Replacement) -> Confirmation {
-        Interface::confirm(self, replacement)
+    fn confirm(&self, _replacement: &Replacement) -> Confirmation {
+        Confirmation::Accept
     }
 }
