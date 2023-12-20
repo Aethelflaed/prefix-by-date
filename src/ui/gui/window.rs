@@ -12,6 +12,7 @@ use iced::{Application, Color, Command, Element, Length, Subscription, Theme};
 pub enum Message {
     Processing(processing::Event),
     Keyboard(iced::keyboard::Event),
+    Confirm(Confirmation),
 }
 
 pub struct Window {
@@ -32,8 +33,16 @@ enum State {
 #[derive(Default)]
 struct Progress {
     index: usize,
-    current: Option<PathBuf>,
+    current: Current,
     log: Vec<ProcessingResult>,
+}
+
+#[derive(Default)]
+enum Current {
+    #[default]
+    None,
+    Path(PathBuf),
+    Replacement(Replacement),
 }
 
 #[derive(Clone)]
@@ -48,6 +57,16 @@ impl std::fmt::Display for ProcessingResult {
             Self::Success(rep) => write!(f, "{}", rep),
             Self::Error(path, error) => {
                 write!(f, "Error replacing {:?}: {:}", path, error)
+            }
+        }
+    }
+}
+
+impl Window {
+    fn confirm(&mut self, conf: Confirmation) {
+        if matches!(self.progress.current, Current::Replacement(_)) {
+            if let State::Processing(connection) = &mut self.state {
+                connection.send(conf);
             }
         }
     }
@@ -84,29 +103,42 @@ impl Application for Window {
                 match event {
                     Event::Ready(connection) => {
                         self.state = State::Processing(connection);
+
+                        Command::none()
                     }
                     Event::Processing(path) => {
-                        self.progress.current = Some(path);
+                        self.progress.current = Current::Path(path);
+
+                        Command::none()
                     }
                     Event::ProcessingOk(rep) => {
                         self.progress.index += 1;
                         self.progress.log.push(ProcessingResult::Success(rep));
+
+                        Command::none()
                     }
                     Event::ProcessingErr(path, error) => {
                         self.progress.index += 1;
                         self.progress
                             .log
                             .push(ProcessingResult::Error(path, error));
+
+                        Command::none()
                     }
-                    Event::Confirm(_) => {
-                        if let State::Processing(connection) = &mut self.state {
-                            connection.send(Confirmation::Abort);
-                        }
+                    Event::Confirm(rep) => {
+                        self.progress.current = Current::Replacement(rep);
+
+                        Command::none()
                     }
                     Event::Finished | Event::Aborted => {
                         self.state = State::Finished;
+
+                        iced::window::close()
                     }
-                };
+                }
+            }
+            Message::Confirm(confirmation) => {
+                self.confirm(confirmation);
                 Command::none()
             }
             Message::Keyboard(event) => match event {
@@ -118,6 +150,15 @@ impl Application for Window {
                         && key_code == iced::keyboard::KeyCode::Q
                     {
                         iced::window::close()
+                    } else if modifiers.is_empty() {
+                        match key_code {
+                            iced::keyboard::KeyCode::Y => {
+                                self.confirm(Confirmation::Accept)
+                            }
+                            _ => {}
+                        };
+
+                        Command::none()
                     } else {
                         Command::none()
                     }
@@ -141,22 +182,40 @@ impl Application for Window {
     }
 
     fn view(&self) -> Element<Message> {
+        use iced::alignment;
         use iced::widget::{
-            column, container, progress_bar, scrollable, text, Column,
+            button, column, container, progress_bar, row, scrollable, text,
+            Column,
         };
 
-        let name = match &self.progress.current {
-            Some(path) => format!("{:?}", path),
-            None => String::from("..."),
+        let message = match &self.progress.current {
+            Current::None => String::from("Booting..."),
+            Current::Path(path) => format!("{:?}", path),
+            Current::Replacement(rep) => format!("{:}", rep),
         };
 
         let message: Element<_> =
-            container(text(name).style(Color::from_rgb8(0x88, 0x88, 0x88)))
+            container(text(message).style(Color::from_rgb8(0x88, 0x88, 0x88)))
                 .width(Length::Fill)
                 .height(Length::Fill)
                 .center_x()
                 .center_y()
                 .into();
+
+        let buttons = row![
+            button(
+                text("Accept")
+                    .width(Length::Fill)
+                    .horizontal_alignment(alignment::Horizontal::Center)
+            )
+            .on_press(Message::Confirm(Confirmation::Accept)),
+            button(
+                text("Always")
+                    .width(Length::Fill)
+                    .horizontal_alignment(alignment::Horizontal::Center)
+            )
+            .on_press(Message::Confirm(Confirmation::Always))
+        ];
 
         column![
             progress_bar(
@@ -164,6 +223,7 @@ impl Application for Window {
                 self.progress.index as f32
             ),
             message,
+            buttons,
             scrollable(
                 Column::with_children(
                     self.progress

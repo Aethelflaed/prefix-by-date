@@ -32,6 +32,7 @@ pub trait Communication {
 }
 
 #[allow(dead_code)]
+#[derive(Debug, Clone)]
 pub enum Confirmation {
     Accept,
     Always,
