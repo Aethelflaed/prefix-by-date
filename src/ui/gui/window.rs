@@ -11,6 +11,7 @@ use iced::{Application, Color, Command, Element, Length, Subscription, Theme};
 #[derive(Debug, Clone)]
 pub enum Message {
     Processing(processing::Event),
+    Keyboard(iced::keyboard::Event),
 }
 
 pub struct Window {
@@ -38,14 +39,16 @@ struct Progress {
 #[derive(Clone)]
 enum ProcessingResult {
     Success(Replacement),
-    Error(PathBuf, String)
+    Error(PathBuf, String),
 }
 
 impl std::fmt::Display for ProcessingResult {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            Self::Success(rep) =>  write!(f, "{}", rep),
-            Self::Error(path, error) =>  write!(f, "Error replacing {:?}: {:}", path, error)
+            Self::Success(rep) => write!(f, "{}", rep),
+            Self::Error(path, error) => {
+                write!(f, "Error replacing {:?}: {:}", path, error)
+            }
         }
     }
 }
@@ -74,10 +77,10 @@ impl Application for Window {
 
     fn update(&mut self, message: Message) -> Command<Message> {
         use processing::Event;
-        log::debug!("Message: {:?}", message);
 
         match message {
             Message::Processing(event) => {
+                log::debug!("Processing event: {:?}", event);
                 match event {
                     Event::Ready(connection) => {
                         self.state = State::Processing(connection);
@@ -91,7 +94,9 @@ impl Application for Window {
                     }
                     Event::ProcessingErr(path, error) => {
                         self.progress.index += 1;
-                        self.progress.log.push(ProcessingResult::Error(path, error));
+                        self.progress
+                            .log
+                            .push(ProcessingResult::Error(path, error));
                     }
                     Event::Confirm(_) => {
                         if let State::Processing(connection) = &mut self.state {
@@ -104,16 +109,41 @@ impl Application for Window {
                 };
                 Command::none()
             }
+            Message::Keyboard(event) => match event {
+                iced::keyboard::Event::KeyPressed {
+                    key_code,
+                    modifiers,
+                } => {
+                    if modifiers.control()
+                        && key_code == iced::keyboard::KeyCode::Q
+                    {
+                        iced::window::close()
+                    } else {
+                        Command::none()
+                    }
+                }
+                _ => Command::none(),
+            },
         }
     }
 
     fn subscription(&self) -> Subscription<Message> {
-        processing::connect(&self.matchers, &self.paths)
-            .map(Message::Processing)
+        Subscription::batch(vec![
+            processing::connect(&self.matchers, &self.paths)
+                .map(Message::Processing),
+            iced::subscription::events_with(|event, _status| match event {
+                iced::Event::Keyboard(kevent) => {
+                    Some(Message::Keyboard(kevent))
+                }
+                _ => None,
+            }),
+        ])
     }
 
     fn view(&self) -> Element<Message> {
-        use iced::widget::{column, container, progress_bar, scrollable, text, Column};
+        use iced::widget::{
+            column, container, progress_bar, scrollable, text, Column,
+        };
 
         let name = match &self.progress.current {
             Some(path) => format!("{:?}", path),
@@ -136,8 +166,13 @@ impl Application for Window {
             message,
             scrollable(
                 Column::with_children(
-                    self.progress.log
-                    .iter().cloned().map(text).map(Element::from).collect()
+                    self.progress
+                        .log
+                        .iter()
+                        .cloned()
+                        .map(text)
+                        .map(Element::from)
+                        .collect()
                 )
                 .width(Length::Fill)
             )

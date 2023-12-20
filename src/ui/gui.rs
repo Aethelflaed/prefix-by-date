@@ -35,9 +35,13 @@ impl ui::Interface for Gui {
 
         window::Window::run(Settings {
             flags: (matchers.to_owned(), paths.to_owned()),
+            window: iced::window::Settings {
+                size: (300, 300),
+                ..Default::default()
+            },
             ..Settings::default()
         })
-        .unwrap(); // XXX
+        .expect("Window to start");
         Ok(())
     }
 }
