@@ -7,7 +7,7 @@ install_debug: files/debug.desktop files/patterns.toml
 	mkdir -p ~/.config/prefix-by-date
 	cp files/patterns.toml ~/.config/prefix-by-date/
 
-test:
+test: install_debug
 	make -C tests
 
 text: test
@@ -15,7 +15,12 @@ text: test
 
 gui: test
 	cargo build -F gui
-	./target/debug/prefix-by-date -vvv -i gui tests/2023-10-15\ Hello\ .pdf tests/Hello\ au\ 2023-10-15.pdf tests/IMG-20231117-whatever.jpg tests/IMG-20231117-another.jpg
+	./target/debug/prefix-by-date -vvv -i gui \
+		tests/2023-10-15\ Hello.pdf \
+		tests/Hello\ au\ 2023-10-15.pdf \
+		tests/Hello\ 2023-10-15.pdf \
+		tests/IMG-20231117-whatever.jpg \
+		tests/IMG-20231117-another.jpg
 
 journal:
 	journalctl -e --user -t prefix-by-date
