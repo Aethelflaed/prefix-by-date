@@ -140,12 +140,6 @@ fn config_home() -> PathBuf {
 fn build_interface(cli: &Cli) -> Box<dyn ui::Interface> {
     use crate::cli::Interactive;
     use crate::ui::{Gui, NonInteractive, Text};
-    use systemd_journal_logger::connected_to_journal;
-
-    // XXX check if we still connect to journal if we start with GUI via systemd
-    if connected_to_journal() {
-        return Box::new(NonInteractive::new());
-    }
 
     match cli.interactive {
         Interactive::Text if cfg!(feature = "text") => Box::new(Text::new()),
