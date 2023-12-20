@@ -260,9 +260,9 @@ impl Application for Window {
                         ]
                         .align_items(Alignment::Center)
                         .spacing(10)
-                        .into()
                     })
-                    .collect::<Vec<Element<_>>>(),
+                    .map(Element::from)
+                    .collect(),
             )
             .spacing(10),
         )
@@ -299,10 +299,15 @@ impl Application for Window {
 fn scrollable_logs(
     logs: &Vec<ProcessingResult>,
 ) -> iced::widget::Scrollable<'_, Message> {
-    use iced::widget::{scrollable, text, Column};
+    use iced::widget::{column, scrollable, text};
     scrollable(
-        Column::with_children(
-            logs.iter().rev().cloned().map(text).map(Element::from).collect(),
+        column(
+            logs.iter()
+                .rev()
+                .cloned()
+                .map(text)
+                .map(Element::from)
+                .collect(),
         )
         .width(Length::Fill),
     )
