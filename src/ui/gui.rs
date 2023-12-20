@@ -36,7 +36,7 @@ impl ui::Interface for Gui {
         window::Window::run(Settings {
             flags: (matchers.to_owned(), paths.to_owned()),
             window: iced::window::Settings {
-                size: (300, 300),
+                size: (500, 500),
                 ..Default::default()
             },
             ..Settings::default()

@@ -3,9 +3,11 @@ use crate::processing::Confirmation;
 use crate::replacement::Replacement;
 use crate::ui::gui::processing;
 
+use std::collections::HashMap;
 use std::path::PathBuf;
 
 use iced::executor;
+use iced::keyboard::KeyCode;
 use iced::{Application, Color, Command, Element, Length, Subscription, Theme};
 
 #[derive(Debug, Clone)]
@@ -13,6 +15,7 @@ pub enum Message {
     Processing(processing::Event),
     Keyboard(iced::keyboard::Event),
     Confirm(Confirmation),
+    ToggleLogs,
 }
 
 pub struct Window {
@@ -34,7 +37,10 @@ enum State {
 struct Progress {
     index: usize,
     current: Current,
-    log: Vec<ProcessingResult>,
+    log: bool,
+    debug: bool,
+    replacements: HashMap<String, Replacement>,
+    logs: Vec<ProcessingResult>,
 }
 
 #[derive(Default)]
@@ -55,9 +61,7 @@ impl std::fmt::Display for ProcessingResult {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             Self::Success(rep) => write!(f, "{}", rep),
-            Self::Error(path, error) => {
-                write!(f, "Error replacing {:?}: {:}", path, error)
-            }
+            Self::Error(_path, error) => write!(f, "{}", error),
         }
     }
 }
@@ -69,6 +73,10 @@ impl Window {
                 connection.send(conf);
             }
         }
+    }
+
+    fn toggle_logs(&mut self) {
+        self.progress.log = !self.progress.log;
     }
 }
 
@@ -107,25 +115,36 @@ impl Application for Window {
                         Command::none()
                     }
                     Event::Processing(path) => {
+                        self.progress.replacements.clear();
                         self.progress.current = Current::Path(path);
 
                         Command::none()
                     }
                     Event::ProcessingOk(rep) => {
                         self.progress.index += 1;
-                        self.progress.log.push(ProcessingResult::Success(rep));
+                        self.progress.logs.push(ProcessingResult::Success(rep));
 
                         Command::none()
                     }
                     Event::ProcessingErr(path, error) => {
                         self.progress.index += 1;
                         self.progress
-                            .log
+                            .logs
                             .push(ProcessingResult::Error(path, error));
 
                         Command::none()
                     }
                     Event::Confirm(rep) => {
+                        for matcher in &self.matchers {
+                            if let Some(replacement) = matcher.check(&rep.path)
+                            {
+                                self.progress.replacements.insert(
+                                    matcher.name().to_string(),
+                                    replacement,
+                                );
+                            }
+                        }
+
                         self.progress.current = Current::Replacement(rep);
 
                         Command::none()
@@ -137,6 +156,11 @@ impl Application for Window {
                     }
                 }
             }
+            Message::ToggleLogs => {
+                self.toggle_logs();
+
+                Command::none()
+            }
             Message::Confirm(confirmation) => {
                 self.confirm(confirmation);
                 Command::none()
@@ -146,14 +170,19 @@ impl Application for Window {
                     key_code,
                     modifiers,
                 } => {
-                    if modifiers.control()
-                        && key_code == iced::keyboard::KeyCode::Q
-                    {
+                    if modifiers.control() && key_code == KeyCode::Q {
                         iced::window::close()
                     } else if modifiers.is_empty() {
                         match key_code {
-                            iced::keyboard::KeyCode::Y => {
-                                self.confirm(Confirmation::Accept)
+                            KeyCode::Y => self.confirm(Confirmation::Accept),
+                            KeyCode::A => self.confirm(Confirmation::Always),
+                            KeyCode::S => self.confirm(Confirmation::Skip),
+                            KeyCode::R => self.confirm(Confirmation::Refuse),
+                            KeyCode::I => self.confirm(Confirmation::Ignore),
+                            KeyCode::Q => self.confirm(Confirmation::Abort),
+                            KeyCode::L => self.toggle_logs(),
+                            KeyCode::D => {
+                                self.progress.debug = !self.progress.debug;
                             }
                             _ => {}
                         };
@@ -182,10 +211,9 @@ impl Application for Window {
     }
 
     fn view(&self) -> Element<Message> {
-        use iced::alignment;
+        use iced::alignment::Alignment;
         use iced::widget::{
-            button, column, container, progress_bar, row, scrollable, text,
-            Column,
+            column, container, progress_bar, row, text, Container,
         };
 
         let message = match &self.progress.current {
@@ -197,50 +225,108 @@ impl Application for Window {
         let message: Element<_> =
             container(text(message).style(Color::from_rgb8(0x88, 0x88, 0x88)))
                 .width(Length::Fill)
-                .height(Length::Fill)
                 .center_x()
                 .center_y()
                 .into();
 
-        let buttons = row![
-            button(
-                text("Accept")
-                    .width(Length::Fill)
-                    .horizontal_alignment(alignment::Horizontal::Center)
-            )
-            .on_press(Message::Confirm(Confirmation::Accept)),
-            button(
-                text("Always")
-                    .width(Length::Fill)
-                    .horizontal_alignment(alignment::Horizontal::Center)
-            )
-            .on_press(Message::Confirm(Confirmation::Always))
-        ];
+        let buttons = container(
+            row![
+                conf_button("Yes", Confirmation::Accept),
+                conf_button("Always", Confirmation::Always),
+                conf_button("Skip", Confirmation::Skip),
+                conf_button("Refuse", Confirmation::Refuse),
+                conf_button("Ignore", Confirmation::Ignore),
+                conf_button("Quit", Confirmation::Abort),
+                simple_button("Logs", Message::ToggleLogs),
+            ]
+            .spacing(10),
+        )
+        .width(Length::Fill)
+        .center_x()
+        .center_y();
 
-        column![
+        let alternatives: Container<'_, Message> = container(
+            column(
+                self.progress
+                    .replacements
+                    .iter()
+                    .map(|(name, rep)| {
+                        row![
+                            conf_button(
+                                name,
+                                Confirmation::Replace(rep.clone())
+                            ),
+                            text(format!("{}", rep)),
+                        ]
+                        .align_items(Alignment::Center)
+                        .spacing(10)
+                        .into()
+                    })
+                    .collect::<Vec<Element<_>>>(),
+            )
+            .spacing(10),
+        )
+        .width(Length::Fill);
+
+        let mut content = column![
             progress_bar(
                 0.0..=(self.paths.len() as f32),
                 self.progress.index as f32
             ),
             message,
             buttons,
-            scrollable(
-                Column::with_children(
-                    self.progress
-                        .log
-                        .iter()
-                        .cloned()
-                        .map(text)
-                        .map(Element::from)
-                        .collect()
-                )
-                .width(Length::Fill)
-            )
+            alternatives,
         ]
         .width(Length::Fill)
         .height(Length::Fill)
         .padding(20)
-        .spacing(10)
-        .into()
+        .spacing(10);
+
+        if self.progress.log {
+            content = content.push(scrollable_logs(&self.progress.logs));
+        }
+
+        let mut content: Element<_> = content.into();
+
+        if self.progress.debug {
+            content = content.explain(Color::BLACK);
+        }
+
+        content
     }
+}
+
+fn scrollable_logs(
+    logs: &Vec<ProcessingResult>,
+) -> iced::widget::Scrollable<'_, Message> {
+    use iced::widget::{scrollable, text, Column};
+    scrollable(
+        Column::with_children(
+            logs.iter().cloned().map(text).map(Element::from).collect(),
+        )
+        .width(Length::Fill),
+    )
+}
+
+fn simple_button(
+    label: &str,
+    message: Message,
+) -> iced::widget::Button<'_, Message> {
+    use iced::{
+        alignment,
+        widget::{button, text},
+    };
+    button(
+        text(label)
+            .width(Length::Fill)
+            .horizontal_alignment(alignment::Horizontal::Center),
+    )
+    .on_press(message)
+}
+
+fn conf_button(
+    label: &str,
+    confirmation: Confirmation,
+) -> iced::widget::Button<'_, Message> {
+    simple_button(label, Message::Confirm(confirmation))
 }
