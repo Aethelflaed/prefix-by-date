@@ -25,10 +25,17 @@ where
 }
 
 pub trait Communication {
+    /// Start processing this path
     fn processing(&self, path: &Path);
+    /// Processing went well and ended-up with this replacement
     fn processing_ok(&self, replacement: &Replacement);
+    /// Processing encountered this error
     fn processing_err(&self, path: &Path, error: &Error);
+
+    /// Whenever a matcher finds a replacement, confirm it
     fn confirm(&self, replacement: &Replacement) -> Confirmation;
+    /// If no match is found, attempt to rescue the Error::NoMatch
+    fn rescue(&self, error: Error) -> Result<Replacement>;
 }
 
 #[allow(dead_code)]
@@ -99,8 +106,11 @@ where
         // Get an immutable ref
         let interface: &T = self.interface;
 
+        let mut found = false;
+
         for matcher in self.matchers_mut() {
             if let Some(replacement) = matcher.check(path) {
+                found = true;
                 if matcher.confirmed() {
                     return Ok(replacement);
                 }
@@ -127,7 +137,11 @@ where
             }
         }
 
-        Err(Error::no_match(path))
+        if found {
+            Err(Error::no_match(path))
+        } else {
+            interface.rescue(Error::no_match(path))
+        }
     }
 
     /// Return all non-ignored matchers

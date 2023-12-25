@@ -2,7 +2,7 @@
 
 use crate::application::Result;
 use crate::matcher::Matcher;
-use crate::processing::{Communication, Confirmation, Error, Processing};
+use crate::processing::{self, Communication, Confirmation, Error, Processing};
 use crate::replacement::Replacement;
 use crate::ui;
 
@@ -257,5 +257,31 @@ impl Communication for Text {
     }
     fn confirm(&self, replacement: &Replacement) -> Confirmation {
         Text::confirm(self, replacement)
+    }
+    fn rescue(&self, error: Error) -> processing::Result<Replacement> {
+        match &error {
+            Error::NoMatch(path) => {
+                let replacement = match Replacement::try_from(path.as_path()) {
+                    Ok(rep) => rep,
+                    Err(_) => return Err(error),
+                };
+                println!("No match found for {:?}.", path);
+                match self.customize(&replacement) {
+                    Confirmation::Abort => Err(error),
+                    Confirmation::Replace(replacement) => Ok(replacement),
+                    other => {
+                        log::warn!(
+                            "Unexpected rescue confirmation: {:?}",
+                            other
+                        );
+                        Err(error)
+                    }
+                }
+            }
+            _ => {
+                log::warn!("Unexpected rescue: {:?}", error);
+                Err(error)
+            }
+        }
     }
 }

@@ -1,5 +1,5 @@
 use crate::matcher::Matcher;
-use crate::processing::{Communication, Confirmation, Error, Processing};
+use crate::processing::{self, Communication, Confirmation, Error, Processing};
 use crate::replacement::Replacement;
 
 use std::cell::RefCell;
@@ -22,6 +22,7 @@ pub enum Event {
     ProcessingOk(Replacement),
     ProcessingErr(PathBuf, String),
     Confirm(Replacement),
+    Rescue(Replacement),
     Finished,
     Aborted,
 }
@@ -146,6 +147,7 @@ impl<'a> Communication for ProcessingFront<'a> {
             format!("{}", error),
         ));
     }
+
     fn confirm(&self, replacement: &Replacement) -> Confirmation {
         if !self.send(Event::Confirm(replacement.clone())) {
             return Confirmation::Abort;
@@ -155,5 +157,46 @@ impl<'a> Communication for ProcessingFront<'a> {
         // If we don't get a confirmation, it means the UI is quitting, so we
         // abort
         block_on(receiving).unwrap_or(Confirmation::Abort)
+    }
+
+    fn rescue(&self, error: Error) -> processing::Result<Replacement> {
+        match &error {
+            Error::NoMatch(path) => {
+                let replacement = match Replacement::try_from(path.as_path()) {
+                    Ok(rep) => rep,
+                    Err(_) => return Err(error),
+                };
+
+                if !self.send(Event::Rescue(replacement.clone())) {
+                    return Err(Error::Abort);
+                }
+
+                let receiving =
+                    async { self.conf_rx.lock().await.next().await };
+                // If we don't get a confirmation, it means the UI is
+                // quitting, so we abort
+                let conf = match block_on(receiving) {
+                    None => return Err(Error::Abort),
+                    Some(conf) => conf,
+                };
+                match conf {
+                    // If we receive Confirmation::Abort, this means the rescue
+                    // is aborted, so we return the original error
+                    Confirmation::Abort => Err(Error::Abort),
+                    Confirmation::Replace(replacement) => Ok(replacement),
+                    other => {
+                        log::warn!(
+                            "Unexpected rescue confirmation: {:?}",
+                            other
+                        );
+                        Err(error)
+                    }
+                }
+            }
+            _ => {
+                log::warn!("Unexpected rescue: {:?}", error);
+                Err(error)
+            }
+        }
     }
 }

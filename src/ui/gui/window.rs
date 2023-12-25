@@ -48,7 +48,8 @@ enum Current {
     #[default]
     None,
     Path(PathBuf),
-    Replacement(Replacement),
+    Confirm(Replacement),
+    Rescue(Replacement),
 }
 
 #[derive(Clone)]
@@ -68,9 +69,18 @@ impl std::fmt::Display for ProcessingResult {
 
 impl Window {
     fn confirm(&mut self, conf: Confirmation) {
-        if matches!(self.progress.current, Current::Replacement(_)) {
-            if let State::Processing(connection) = &mut self.state {
-                connection.send(conf);
+        if let State::Processing(connection) = &mut self.state {
+            match self.progress.current {
+                Current::Confirm(_) => {
+                    connection.send(conf);
+                }
+                Current::Rescue(_) => match conf {
+                    Confirmation::Replace(_)
+                    | Confirmation::Abort
+                    | Confirmation::Refuse => connection.send(conf),
+                    _ => {}
+                },
+                _ => {}
             }
         }
     }
@@ -145,7 +155,12 @@ impl Application for Window {
                             }
                         }
 
-                        self.progress.current = Current::Replacement(rep);
+                        self.progress.current = Current::Confirm(rep);
+
+                        Command::none()
+                    }
+                    Event::Rescue(rep) => {
+                        self.progress.current = Current::Rescue(rep);
 
                         Command::none()
                     }
@@ -213,13 +228,14 @@ impl Application for Window {
     fn view(&self) -> Element<Message> {
         use iced::alignment::Alignment;
         use iced::widget::{
-            column, container, progress_bar, row, text, Container,
+            column, container, progress_bar, row, text, Container, Row,
         };
 
         let message = match &self.progress.current {
             Current::None => String::from("Booting..."),
             Current::Path(path) => format!("{:?}", path),
-            Current::Replacement(rep) => format!("{:}", rep),
+            Current::Confirm(rep) => format!("{:}", rep),
+            Current::Rescue(rep) => format!("{:}", rep),
         };
 
         let message: Element<_> =
@@ -229,21 +245,28 @@ impl Application for Window {
                 .center_y()
                 .into();
 
-        let buttons = container(
-            row![
-                conf_button("Yes", Confirmation::Accept),
-                conf_button("Always", Confirmation::Always),
-                conf_button("Skip", Confirmation::Skip),
-                conf_button("Refuse", Confirmation::Refuse),
-                conf_button("Ignore", Confirmation::Ignore),
-                conf_button("Quit", Confirmation::Abort),
-                simple_button("Logs", Message::ToggleLogs),
-            ]
-            .spacing(10),
-        )
-        .width(Length::Fill)
-        .center_x()
-        .center_y();
+        let mut buttons = Row::with_children(vec![]).spacing(10);
+        match self.progress.current {
+            Current::None | Current::Path(_) => {}
+            Current::Confirm(_) => {
+                buttons =
+                    buttons.push(conf_button("Yes", Confirmation::Accept));
+                buttons =
+                    buttons.push(conf_button("Always", Confirmation::Always));
+                buttons = buttons.push(conf_button("Skip", Confirmation::Skip));
+                buttons =
+                    buttons.push(conf_button("Refuse", Confirmation::Refuse));
+                buttons =
+                    buttons.push(conf_button("Ignore", Confirmation::Ignore));
+                buttons =
+                    buttons.push(conf_button("Quit", Confirmation::Abort));
+            }
+            Current::Rescue(_) => {}
+        }
+
+        buttons = buttons.push(simple_button("Logs", Message::ToggleLogs));
+        let buttons =
+            container(buttons).width(Length::Fill).center_x().center_y();
 
         let alternatives: Container<'_, Message> = container(
             column(
