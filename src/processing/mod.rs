@@ -1,4 +1,4 @@
-use crate::matcher::Matcher as MatcherTrait;
+use crate::matcher::Matcher;
 use crate::replacement::Replacement;
 
 mod error;
@@ -6,7 +6,7 @@ pub use error::Error;
 pub type Result<T> = std::result::Result<T, Error>;
 
 mod matcher;
-pub use matcher::Matcher;
+pub use matcher::ProcessingMatcher;
 
 mod log_reporter;
 use log_reporter::LogReporter;
@@ -18,7 +18,7 @@ pub struct Processing<'a, T>
 where
     T: Communication,
 {
-    matchers: Vec<Matcher>,
+    matchers: Vec<ProcessingMatcher>,
     paths: Vec<PathBuf>,
     interface: &'a T,
     reporters: Vec<Box<dyn Reporter>>,
@@ -60,7 +60,7 @@ where
 {
     pub fn new(
         interface: &'a T,
-        matchers: &[Box<dyn MatcherTrait>],
+        matchers: &[Box<dyn Matcher>],
         paths: &[PathBuf],
     ) -> Self {
         Self {
@@ -146,7 +146,7 @@ where
     }
 
     /// Return all non-ignored matchers
-    fn matchers_mut(&mut self) -> impl Iterator<Item = &mut Matcher> + '_ {
+    fn matchers_mut(&mut self) -> impl Iterator<Item = &mut ProcessingMatcher> + '_ {
         self.matchers
             .iter_mut()
             .filter(|matcher| !matcher.ignored())

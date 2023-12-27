@@ -1,17 +1,17 @@
-use crate::matcher::Matcher as MatcherTrait;
+use crate::matcher::Matcher;
 use crate::replacement::Replacement;
 
 use std::path::Path;
 
 #[derive(Clone)]
-pub struct Matcher {
+pub struct ProcessingMatcher {
     confirmed: bool,
     ignored: bool,
-    matcher: Box<dyn MatcherTrait>,
+    matcher: Box<dyn Matcher>,
 }
 
-impl From<&Box<dyn MatcherTrait>> for Matcher {
-    fn from(matcher: &Box<dyn MatcherTrait>) -> Self {
+impl From<&Box<dyn Matcher>> for ProcessingMatcher {
+    fn from(matcher: &Box<dyn Matcher>) -> Self {
         Self {
             confirmed: false,
             ignored: false,
@@ -20,7 +20,7 @@ impl From<&Box<dyn MatcherTrait>> for Matcher {
     }
 }
 
-impl Matcher {
+impl ProcessingMatcher {
     pub fn check(&self, path: &Path) -> Option<Replacement> {
         self.matcher.check(path)
     }
