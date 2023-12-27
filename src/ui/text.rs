@@ -65,7 +65,7 @@ impl Text {
         !systemd_journal_logger::connected_to_journal() &&
             // If stdout is not a tty, then we probably don't want interaction
             // either
-            atty::isnt(atty::Stream::Stdout)
+            atty::is(atty::Stream::Stdout)
     }
 
     #[cfg(test)]
