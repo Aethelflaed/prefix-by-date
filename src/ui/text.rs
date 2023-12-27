@@ -2,7 +2,7 @@
 
 use crate::application::Result;
 use crate::matcher::Matcher;
-use crate::processing::{self, Communication, Confirmation, Error, Processing};
+use crate::processing::{self, Communication, Confirmation, Reporter, Error, Processing};
 use crate::replacement::Replacement;
 use crate::ui;
 
@@ -247,7 +247,8 @@ impl ui::Interface for Text {
     }
 }
 
-impl Communication for Text {
+impl Reporter for Text {
+    fn setup(&self, _count: usize) {}
     fn processing(&self, _path: &Path) {}
     fn processing_ok(&self, _replacement: &Replacement) {
         self.inc_progress();
@@ -255,6 +256,9 @@ impl Communication for Text {
     fn processing_err(&self, _path: &Path, _error: &Error) {
         self.inc_progress();
     }
+}
+
+impl Communication for Text {
     fn confirm(&self, replacement: &Replacement) -> Confirmation {
         Text::confirm(self, replacement)
     }

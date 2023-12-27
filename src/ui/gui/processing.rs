@@ -1,5 +1,5 @@
 use crate::matcher::Matcher;
-use crate::processing::{self, Communication, Confirmation, Error, Processing};
+use crate::processing::{self, Communication, Confirmation, Reporter, Error, Processing};
 use crate::replacement::Replacement;
 
 use std::cell::RefCell;
@@ -134,7 +134,8 @@ impl<'a> ProcessingFront<'a> {
     }
 }
 
-impl<'a> Communication for ProcessingFront<'a> {
+impl<'a> Reporter for ProcessingFront<'a> {
+    fn setup(&self, _count: usize) {}
     fn processing(&self, path: &Path) {
         self.send(Event::Processing(path.to_path_buf()));
     }
@@ -147,7 +148,9 @@ impl<'a> Communication for ProcessingFront<'a> {
             format!("{}", error),
         ));
     }
+}
 
+impl<'a> Communication for ProcessingFront<'a> {
     fn confirm(&self, replacement: &Replacement) -> Confirmation {
         if !self.send(Event::Confirm(replacement.clone())) {
             return Confirmation::Abort;

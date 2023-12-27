@@ -24,14 +24,18 @@ where
     reporter: LogReporter,
 }
 
-pub trait Communication {
+pub trait Reporter {
+    /// Report the total count of elements about to be processed
+    fn setup(&self, count: usize);
     /// Start processing this path
     fn processing(&self, path: &Path);
     /// Processing went well and ended-up with this replacement
     fn processing_ok(&self, replacement: &Replacement);
     /// Processing encountered this error
     fn processing_err(&self, path: &Path, error: &Error);
+}
 
+pub trait Communication: Reporter {
     /// Whenever a matcher finds a replacement, confirm it
     fn confirm(&self, replacement: &Replacement) -> Confirmation;
     /// If no match is found, attempt to rescue the Error::NoMatch
@@ -68,7 +72,7 @@ where
     }
 
     pub fn run(&mut self) -> Result<()> {
-        self.reporter.count(self.paths.len());
+        self.reporter.setup(self.paths.len());
 
         let paths = self.paths.clone();
 

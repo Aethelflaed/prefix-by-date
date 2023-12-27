@@ -1,7 +1,7 @@
 use crate::application::Result;
 use crate::cli::Interactive;
 use crate::matcher::Matcher;
-use crate::processing::{self, Communication, Confirmation, Error, Processing};
+use crate::processing::{self, Communication, Reporter, Confirmation, Error, Processing};
 use crate::replacement::Replacement;
 
 use std::boxed::Box;
@@ -72,10 +72,14 @@ impl Interface for NonInteractive {
     }
 }
 
-impl Communication for NonInteractive {
+impl Reporter for NonInteractive {
+    fn setup(&self, _count: usize) {}
     fn processing(&self, _path: &Path) {}
     fn processing_ok(&self, _replacement: &Replacement) {}
     fn processing_err(&self, _path: &Path, _error: &Error) {}
+}
+
+impl Communication for NonInteractive {
     fn confirm(&self, _replacement: &Replacement) -> Confirmation {
         Confirmation::Accept
     }
