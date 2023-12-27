@@ -1,12 +1,12 @@
 use crate::processing::{Error, Result};
 
-use std::ffi::OsStr;
 use std::fmt;
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone)]
 pub struct Replacement {
-    pub path: PathBuf,
+    pub parent: PathBuf,
+    pub file_stem: String,
     pub new_file_stem: String,
     pub extension: String,
 }
@@ -15,6 +15,9 @@ impl TryFrom<&Path> for Replacement {
     type Error = Error;
 
     fn try_from(path: &Path) -> Result<Self> {
+        let parent = path
+            .parent()
+            .ok_or(Error::PathUnwrap(path.into(), "parent"))?;
         let file_stem: String = path
             .file_stem()
             .ok_or(Error::PathUnwrap(path.into(), "file_stem"))?
@@ -29,7 +32,8 @@ impl TryFrom<&Path> for Replacement {
             .into();
 
         Ok(Replacement {
-            path: PathBuf::from(path),
+            parent: parent.to_path_buf(),
+            file_stem: file_stem.clone(),
             new_file_stem: file_stem,
             extension: ext,
         })
@@ -38,34 +42,33 @@ impl TryFrom<&Path> for Replacement {
 
 impl Replacement {
     pub fn execute(&self) -> Result<Self> {
-        let new_path = self.new_path()?;
-        std::fs::rename(&self.path, new_path)?;
+        std::fs::rename(self.path(), self.new_path())?;
 
         Ok(self.clone())
     }
 
-    pub fn str_file_stem(&self) -> Option<String> {
-        self.path.file_stem().and_then(os_str_to_string)
+    pub fn path(&self) -> PathBuf {
+        self.parent
+            .join(format!("{}.{}", self.file_stem, self.extension))
     }
 
-    pub fn new_path(&self) -> Result<PathBuf> {
-        let parent = self
-            .path
-            .parent()
-            .ok_or(Error::PathUnwrap(self.path.clone(), "parent"))?;
-        let extension = self
-            .path
-            .extension()
-            .ok_or(Error::PathUnwrap(self.path.clone(), "extension"))?
-            .to_str()
-            .ok_or(Error::PathUnwrap(self.path.clone(), "extension/to_str"))?;
-
-        Ok(parent.join(format!("{}.{}", self.new_file_stem, extension,)))
+    pub fn new_path(&self) -> PathBuf {
+        self.parent
+            .join(format!("{}.{}", self.new_file_stem, self.extension))
     }
 }
 
-fn os_str_to_string(os_str: &OsStr) -> Option<String> {
-    os_str.to_str().map(String::from)
+impl fmt::Display for Replacement {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{}/{{{} => {}}}.{}",
+            self.parent.to_str().unwrap(),
+            self.file_stem,
+            self.new_file_stem,
+            self.extension
+        )
+    }
 }
 
 #[cfg(test)]
@@ -81,8 +84,8 @@ mod tests {
     fn try_from() {
         let replacement = Replacement::try_from(path().as_path()).unwrap();
 
-        assert_eq!(String::from("test"), replacement.str_file_stem().unwrap());
-        assert_eq!(path(), replacement.new_path().unwrap());
+        assert_eq!(String::from("test"), replacement.file_stem);
+        assert_eq!(path(), replacement.new_path());
     }
 
     #[test]
@@ -90,23 +93,10 @@ mod tests {
         let mut replacement = Replacement::try_from(path().as_path()).unwrap();
         replacement.new_file_stem = String::from("success.txt");
 
-        assert_eq!(String::from("test"), replacement.str_file_stem().unwrap());
+        assert_eq!(String::from("test"), replacement.file_stem);
         assert_eq!(
             PathBuf::from("/this/is/a/success.txt.pdf"),
-            replacement.new_path().unwrap()
+            replacement.new_path()
         );
-    }
-}
-
-impl fmt::Display for Replacement {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "{}/{{{} => {}}}.{}",
-            self.path.parent().unwrap().to_str().unwrap(),
-            self.path.file_stem().unwrap().to_str().unwrap(),
-            self.new_file_stem,
-            self.extension
-        )
     }
 }

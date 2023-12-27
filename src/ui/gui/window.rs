@@ -146,7 +146,8 @@ impl Application for Window {
                     }
                     Event::Confirm(rep) => {
                         for matcher in &self.matchers {
-                            if let Some(replacement) = matcher.check(&rep.path)
+                            if let Some(replacement) =
+                                matcher.check(rep.path().as_path())
                             {
                                 self.progress.replacements.insert(
                                     matcher.name().to_string(),
@@ -292,13 +293,13 @@ impl Application for Window {
         .width(Length::Fill);
 
         let mut content = column![
+            message,
+            buttons,
+            alternatives,
             progress_bar(
                 0.0..=(self.paths.len() as f32),
                 self.progress.index as f32
             ),
-            message,
-            buttons,
-            alternatives,
         ]
         .width(Length::Fill)
         .height(Length::Fill)

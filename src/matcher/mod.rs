@@ -49,7 +49,7 @@ impl Matcher for PredeterminedDate {
         replacement.new_file_stem = format!(
             "{} {}",
             self.date_time.format(self.format.as_str()),
-            replacement.str_file_stem()?,
+            replacement.file_stem,
         );
 
         Some(replacement)
@@ -119,7 +119,7 @@ mod tests {
         let replacement = matcher.check(&PathBuf::from("foo.bar")).unwrap();
         assert_eq!(
             PathBuf::from("2023-10-31 00h00m foo.bar"),
-            replacement.new_path().unwrap()
+            replacement.new_path()
         );
     }
 }

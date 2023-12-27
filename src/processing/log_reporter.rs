@@ -31,7 +31,7 @@ impl Reporter for LogReporter {
 
     /// Report that processing  the path finished successfully
     fn processing_ok(&self, replacement: &Replacement) {
-        self.report_path("Success processing path", &replacement.path);
+        self.report_path("Success processing path", &replacement.path());
         log::info!("Into: {}", replacement);
     }
 }

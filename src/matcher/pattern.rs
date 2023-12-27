@@ -112,7 +112,7 @@ impl Matcher for Pattern {
 
         let file_stem = self
             .regex
-            .captures(&replacement.str_file_stem()?)
+            .captures(&replacement.file_stem)
             .and_then(|captures| self.file_stem_from_captures(captures))?;
 
         replacement.new_file_stem = file_stem;

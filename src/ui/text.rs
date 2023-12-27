@@ -37,8 +37,8 @@ impl<'a> fmt::Display for ReplacementDisplay<'a> {
         use diff::Result::*;
 
         for diff in diff::chars(
-            self.replacement.path.to_str().unwrap(),
-            self.replacement.new_path().unwrap().to_str().unwrap(),
+            self.replacement.file_stem.as_str(),
+            self.replacement.new_file_stem.as_str(),
         ) {
             match diff {
                 Left(ch) => write!(f, "{}", style(ch).red())?,
@@ -147,7 +147,9 @@ impl Text {
         let mut options: Vec<String> = vec![];
 
         for matcher in &self.matchers {
-            if let Some(replacement) = matcher.check(&replacement.path) {
+            if let Some(replacement) =
+                matcher.check(replacement.path().as_path())
+            {
                 options.push(format!(
                     "{}: {}",
                     pad_str(
