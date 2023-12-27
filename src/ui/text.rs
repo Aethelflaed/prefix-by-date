@@ -2,7 +2,9 @@
 
 use crate::application::Result;
 use crate::matcher::Matcher;
-use crate::processing::{self, Communication, Confirmation, Reporter, Error, Processing};
+use crate::processing::{
+    self, Communication, Confirmation, Error, Processing, Reporter,
+};
 use crate::replacement::Replacement;
 use crate::ui;
 

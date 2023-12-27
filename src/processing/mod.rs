@@ -9,7 +9,7 @@ mod matcher;
 pub use matcher::ProcessingMatcher;
 
 mod log_reporter;
-use log_reporter::LogReporter;
+mod notif_reporter;
 
 use std::boxed::Box;
 use std::path::{Path, PathBuf};
@@ -67,7 +67,11 @@ where
             matchers: matchers.iter().map(From::<_>::from).collect(),
             paths: paths.to_owned(),
             interface,
-            reporters: vec![Box::new(LogReporter::default())],
+            reporters: vec![
+                Box::<log_reporter::LogReporter>::default(),
+                #[cfg(feature = "notif")]
+                Box::<notif_reporter::NotifReporter>::default(),
+            ],
         }
     }
 
@@ -146,7 +150,9 @@ where
     }
 
     /// Return all non-ignored matchers
-    fn matchers_mut(&mut self) -> impl Iterator<Item = &mut ProcessingMatcher> + '_ {
+    fn matchers_mut(
+        &mut self,
+    ) -> impl Iterator<Item = &mut ProcessingMatcher> + '_ {
         self.matchers
             .iter_mut()
             .filter(|matcher| !matcher.ignored())

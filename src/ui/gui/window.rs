@@ -320,7 +320,7 @@ impl Application for Window {
 }
 
 fn scrollable_logs(
-    logs: &Vec<ProcessingResult>,
+    logs: &[ProcessingResult],
 ) -> iced::widget::Scrollable<'_, Message> {
     use iced::widget::{column, scrollable, text};
     scrollable(

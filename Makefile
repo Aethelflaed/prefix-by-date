@@ -14,7 +14,7 @@ text: test
 	./target/debug/prefix-by-date -vvv -i text tests/2023-10-15\ Hello\ .pdf tests/Hello\ au\ 2023-10-15.pdf tests/IMG-20231117-whatever.jpg tests/IMG-20231117-another.jpg
 
 gui: test
-	cargo build -F gui
+	cargo build -F gui -F text
 	./target/debug/prefix-by-date -vvv -i gui \
 		tests/2023-10-15\ Hello.pdf \
 		tests/Hello\ au\ 2023-10-15.pdf \
