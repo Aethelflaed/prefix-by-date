@@ -21,7 +21,7 @@ where
     matchers: Vec<Matcher>,
     paths: Vec<PathBuf>,
     interface: &'a T,
-    reporter: LogReporter,
+    reporters: Vec<Box<dyn Reporter>>,
 }
 
 pub trait Reporter {
@@ -67,30 +67,27 @@ where
             matchers: matchers.iter().map(From::<_>::from).collect(),
             paths: paths.to_owned(),
             interface,
-            reporter: Default::default(),
+            reporters: vec![Box::new(LogReporter::default())],
         }
     }
 
     pub fn run(&mut self) -> Result<()> {
-        self.reporter.setup(self.paths.len());
+        self.report_setup(self.paths.len());
 
         let paths = self.paths.clone();
 
         for path in &paths {
-            self.reporter.processing(path);
-            self.interface.processing(path);
+            self.report_processing(path);
 
             match self
                 .prefix_if_possible(path)
                 .and_then(|replacement| replacement.execute())
             {
                 Ok(replacement) => {
-                    self.reporter.processing_ok(&replacement);
-                    self.interface.processing_ok(&replacement);
+                    self.report_processing_ok(&replacement);
                 }
                 Err(error) => {
-                    self.reporter.processing_err(path, &error);
-                    self.interface.processing_err(path, &error);
+                    self.report_processing_err(path, &error);
 
                     if let Error::Abort = error {
                         return Err(error);
@@ -153,5 +150,34 @@ where
         self.matchers
             .iter_mut()
             .filter(|matcher| !matcher.ignored())
+    }
+
+    fn report_setup(&self, count: usize) {
+        for reporter in &self.reporters {
+            reporter.setup(count);
+        }
+
+        self.interface.setup(count);
+    }
+    fn report_processing(&self, path: &Path) {
+        for reporter in &self.reporters {
+            reporter.processing(path);
+        }
+
+        self.interface.processing(path);
+    }
+    fn report_processing_ok(&self, replacement: &Replacement) {
+        for reporter in &self.reporters {
+            reporter.processing_ok(replacement);
+        }
+
+        self.interface.processing_ok(replacement);
+    }
+    fn report_processing_err(&self, path: &Path, error: &Error) {
+        for reporter in &self.reporters {
+            reporter.processing_err(path, error);
+        }
+
+        self.interface.processing_err(path, error);
     }
 }
