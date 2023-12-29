@@ -189,6 +189,7 @@ impl<'a> Communication for ProcessingFront<'a> {
                     // is aborted, so we return the original error
                     Confirmation::Abort => Err(Error::Abort),
                     Confirmation::Replace(replacement) => Ok(replacement),
+                    Confirmation::Skip | Confirmation::Refuse => Err(error),
                     other => {
                         log::warn!(
                             "Unexpected rescue confirmation: {:?}",

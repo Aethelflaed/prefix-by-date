@@ -277,6 +277,7 @@ impl Communication for Text {
                 match self.customize(&replacement) {
                     Confirmation::Abort => Err(error),
                     Confirmation::Replace(replacement) => Ok(replacement),
+                    Confirmation::Skip | Confirmation::Refuse => Err(error),
                     other => {
                         log::warn!(
                             "Unexpected rescue confirmation: {:?}",

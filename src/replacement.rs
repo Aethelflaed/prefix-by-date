@@ -32,7 +32,7 @@ impl TryFrom<&Path> for Replacement {
             .into();
 
         Ok(Replacement {
-            parent: parent.to_path_buf(),
+            parent: parent.canonicalize()?,
             file_stem: file_stem.clone(),
             new_file_stem: file_stem,
             extension: ext,
@@ -47,14 +47,20 @@ impl Replacement {
         Ok(self.clone())
     }
 
+    pub fn file_name(&self) -> String {
+        format!("{}.{}", self.file_stem, self.extension)
+    }
+
+    pub fn new_file_name(&self) -> String {
+        format!("{}.{}", self.new_file_stem, self.extension)
+    }
+
     pub fn path(&self) -> PathBuf {
-        self.parent
-            .join(format!("{}.{}", self.file_stem, self.extension))
+        self.parent.join(self.file_name())
     }
 
     pub fn new_path(&self) -> PathBuf {
-        self.parent
-            .join(format!("{}.{}", self.new_file_stem, self.extension))
+        self.parent.join(self.new_file_name())
     }
 }
 
