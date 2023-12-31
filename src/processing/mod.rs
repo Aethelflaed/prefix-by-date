@@ -64,7 +64,7 @@ where
         paths: &[PathBuf],
     ) -> Self {
         Self {
-            matchers: matchers.iter().map(From::<_>::from).collect(),
+            matchers: matchers.iter().cloned().map(From::<_>::from).collect(),
             paths: paths.to_owned(),
             interface,
             reporters: vec![

@@ -10,12 +10,12 @@ pub struct ProcessingMatcher {
     matcher: Box<dyn Matcher>,
 }
 
-impl From<&Box<dyn Matcher>> for ProcessingMatcher {
-    fn from(matcher: &Box<dyn Matcher>) -> Self {
+impl From<Box<dyn Matcher>> for ProcessingMatcher {
+    fn from(matcher: Box<dyn Matcher>) -> Self {
         Self {
             confirmed: false,
             ignored: false,
-            matcher: matcher.clone(),
+            matcher,
         }
     }
 }
@@ -46,5 +46,46 @@ impl ProcessingMatcher {
     /// Mark the matcher as ignored
     pub fn ignore(&mut self) {
         self.ignored = true;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use std::path::PathBuf;
+
+    use crate::matcher::Pattern;
+
+    fn matcher() -> ProcessingMatcher {
+        ProcessingMatcher::from(
+            Box::<Pattern>::default() as Box::<dyn Matcher>
+        )
+    }
+
+    #[test]
+    fn confirm() {
+        let mut processing_matcher = matcher();
+
+        assert!(!processing_matcher.confirmed());
+        processing_matcher.confirm();
+        assert!(processing_matcher.confirmed());
+    }
+
+    #[test]
+    fn ignore() {
+        let mut processing_matcher = matcher();
+
+        assert!(!processing_matcher.ignored());
+        processing_matcher.ignore();
+        assert!(processing_matcher.ignored());
+    }
+
+    #[test]
+    fn check() {
+        let processing_matcher = matcher();
+        let path = PathBuf::from("foo");
+
+        assert!(processing_matcher.check(&path).is_none());
     }
 }
