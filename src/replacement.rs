@@ -31,8 +31,11 @@ impl TryFrom<&Path> for Replacement {
             .ok_or(Error::PathUnwrap(path.into(), "extension/to_str"))?
             .into();
 
+        // Try to resolve the path, but rescue silently if it doesn't work
+        let parent = parent.canonicalize().unwrap_or(parent.to_path_buf());
+
         Ok(Replacement {
-            parent: parent.canonicalize()?,
+            parent,
             file_stem: file_stem.clone(),
             new_file_stem: file_stem,
             extension: ext,
