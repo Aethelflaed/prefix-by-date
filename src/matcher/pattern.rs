@@ -4,7 +4,7 @@ use crate::replacement::Replacement;
 use std::path::Path;
 use std::str::FromStr;
 
-use chrono::{Local, TimeZone};
+use chrono::{DateTime, Local, TimeZone};
 use regex::{Captures, Regex, RegexBuilder};
 
 #[derive(Clone)]
@@ -48,6 +48,48 @@ impl Default for PatternBuilder {
     }
 }
 
+struct MatchedDateTime {
+    year: i32,
+    month: u32,
+    day: u32,
+    hour: u32,
+    min: u32,
+    sec: u32,
+}
+
+impl MatchedDateTime {
+    fn new(captures: &Captures) -> Option<Self> {
+        Some(Self {
+            year: parse(captures, "year")?,
+            month: parse(captures, "month")?,
+            day: parse(captures, "day")?,
+            hour: parse(captures, "hour").unwrap_or(0),
+            min: parse(captures, "min").unwrap_or(0),
+            sec: parse(captures, "sec").unwrap_or(0),
+        })
+    }
+
+    /// Try to return the earliest matching local DateTime corresponding to the
+    /// matched date. If it fails, try swapping month and day around to match
+    /// imperial date format
+    fn resolve(&self) -> Option<DateTime<Local>> {
+        match Local
+            .with_ymd_and_hms(
+                self.year, self.month, self.day, self.hour, self.min, self.sec,
+            )
+            .earliest()
+        {
+            Some(time) => Some(time),
+            None => Local
+                .with_ymd_and_hms(
+                    self.year, self.day, self.month, self.hour, self.min,
+                    self.sec,
+                )
+                .earliest(),
+        }
+    }
+}
+
 fn parse<T>(captures: &Captures, name: &str) -> Option<T>
 where
     T: FromStr,
@@ -72,14 +114,7 @@ impl Pattern {
     }
 
     fn file_stem_from_captures(&self, captures: Captures) -> Option<String> {
-        let date_time = Local.with_ymd_and_hms(
-            parse::<i32>(&captures, "year")?,
-            parse::<u32>(&captures, "month")?,
-            parse::<u32>(&captures, "day")?,
-            parse::<u32>(&captures, "hour").unwrap_or(0),
-            parse::<u32>(&captures, "min").unwrap_or(0),
-            parse::<u32>(&captures, "sec").unwrap_or(0),
-        );
+        let date_time = MatchedDateTime::new(&captures)?;
 
         let mut elements = Vec::<String>::default();
 
@@ -94,7 +129,7 @@ impl Pattern {
             }
         }
 
-        match date_time.earliest() {
+        match date_time.resolve() {
             None => return None,
             Some(time) => {
                 elements.push(time.format(self.format.as_str()).to_string())
@@ -251,7 +286,7 @@ mod tests {
 
     #[test]
     fn pattern_match_start_ymd_end() {
-        let mut pattern = Pattern::builder()
+        let pattern = Pattern::builder()
             .regex(
                 r"
                 (?<start>[A-Z]+)
@@ -267,16 +302,45 @@ mod tests {
             .build()
             .unwrap();
 
-        let mut name = PathBuf::from("IMG-20231028-whatever.jpg");
-        let mut replacement = pattern.check(&name).unwrap();
+        let name = PathBuf::from("IMG-20231028-whatever.jpg");
+        let replacement = pattern.check(&name).unwrap();
 
         assert_eq!(
             String::from("2023-10-28 IMG whatever"),
             replacement.new_file_stem
         );
+    }
 
-        // Try again with a delimiter
-        pattern = Pattern::builder()
+    #[test]
+    fn pattern_match_start_ydm_end() {
+        let pattern = Pattern::builder()
+            .regex(
+                r"
+                (?<start>[A-Z]+)
+                -
+                (?<year>\d{4})
+                (?<month>\d{2})
+                (?<day>\d{2})
+                -
+                (?<end>.+)
+                ",
+            )
+            .name("foo")
+            .build()
+            .unwrap();
+
+        let name = PathBuf::from("IMG-20232810-whatever.jpg");
+        let replacement = pattern.check(&name).unwrap();
+
+        assert_eq!(
+            String::from("2023-10-28 IMG whatever"),
+            replacement.new_file_stem
+        );
+    }
+
+    #[test]
+    fn pattern_match_start_ymd_end_delimiter() {
+        let pattern = Pattern::builder()
             .regex(
                 r"
                 (?<start>[A-Z]+)
@@ -293,15 +357,34 @@ mod tests {
             .build()
             .unwrap();
 
-        replacement = pattern.check(&name).unwrap();
+        let name = PathBuf::from("IMG-20231028-whatever.jpg");
+        let replacement = pattern.check(&name).unwrap();
 
         assert_eq!(
             String::from("2023-10-28 IMG whatever"),
             replacement.new_file_stem
         );
+    }
 
-        // Try with a non matching name
-        name = PathBuf::from("IMG-20230229-smth.jpb");
+    #[test]
+    fn pattern_match_start_ymd_end_no_match() {
+        let pattern = Pattern::builder()
+            .regex(
+                r"
+                (?<start>[A-Z]+)
+                -
+                (?<year>\d{4})
+                (?<month>\d{2})
+                (?<day>\d{2})
+                -
+                (?<end>.+)
+                ",
+            )
+            .name("foo")
+            .build()
+            .unwrap();
+
+        let name = PathBuf::from("IMG-20230229-smth.jpb");
         assert!(pattern.check(&name).is_none());
     }
 
