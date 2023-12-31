@@ -48,7 +48,7 @@ impl Matcher for PredeterminedDate {
         let mut replacement = Replacement::try_from(path).ok()?;
         replacement.new_file_stem = format!(
             "{} {}",
-            self.date_time.format(self.format.as_str()),
+            self.date_time.format(self.date_format()),
             replacement.file_stem,
         );
 
