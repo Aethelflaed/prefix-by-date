@@ -251,7 +251,7 @@ impl Application for Window {
                     _ => {}
                 };
 
-                Command::none()
+                iced::widget::focus_next()
             }
             Message::CustomizeInput(string) => {
                 match &mut self.progress.current {
