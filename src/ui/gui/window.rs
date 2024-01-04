@@ -157,8 +157,11 @@ impl Window {
         }
     }
 
-    fn toggle_logs(&mut self) {
+    fn toggle_log(&mut self) {
         self.log = !self.log;
+    }
+    fn toggle_debug(&mut self) {
+        self.debug = !self.debug;
     }
 }
 
@@ -236,7 +239,7 @@ impl Application for Window {
                 }
             }
             Message::ToggleLogs => {
-                self.toggle_logs();
+                self.toggle_log();
 
                 Command::none()
             }
@@ -295,10 +298,8 @@ impl Application for Window {
                             KeyCode::R => self.confirm(Confirmation::Refuse),
                             KeyCode::I => self.confirm(Confirmation::Ignore),
                             KeyCode::Q => self.confirm(Confirmation::Abort),
-                            KeyCode::L => self.toggle_logs(),
-                            KeyCode::D => {
-                                self.debug = !self.debug;
-                            }
+                            KeyCode::L => self.toggle_log(),
+                            KeyCode::D => self.toggle_debug(),
                             _ => {}
                         };
 

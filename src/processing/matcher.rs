@@ -58,9 +58,7 @@ mod tests {
     use crate::matcher::Pattern;
 
     fn matcher() -> ProcessingMatcher {
-        ProcessingMatcher::from(
-            Box::<Pattern>::default() as Box::<dyn Matcher>
-        )
+        ProcessingMatcher::from(Box::<Pattern>::default() as Box<dyn Matcher>)
     }
 
     #[test]
