@@ -3,7 +3,7 @@ use crate::processing::{Error, Result};
 use std::fmt;
 use std::path::{Path, PathBuf};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Replacement {
     pub parent: PathBuf,
     pub file_stem: String,
@@ -65,6 +65,11 @@ impl Replacement {
     pub fn new_path(&self) -> PathBuf {
         self.parent.join(self.new_file_name())
     }
+
+    pub fn new_file_stem(mut self, value: String) -> Self {
+        self.new_file_stem = value;
+        self
+    }
 }
 
 impl fmt::Display for Replacement {
@@ -105,6 +110,15 @@ mod tests {
         assert_eq!(String::from("test"), replacement.file_stem);
         assert_eq!(
             PathBuf::from("/this/is/a/success.txt.pdf"),
+            replacement.new_path()
+        );
+    }
+
+    #[test]
+    fn new_file_stem_fn() {
+        let replacement = Replacement::try_from(path().as_path()).unwrap().new_file_stem("success".to_string());
+        assert_eq!(
+            PathBuf::from("/this/is/a/success.pdf"),
             replacement.new_path()
         );
     }
