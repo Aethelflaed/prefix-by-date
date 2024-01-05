@@ -1,9 +1,9 @@
 use crate::matcher::Matcher;
 use crate::processing::Confirmation;
-use crate::replacement::Replacement;
+use crate::ui::actions::{Action, Actions};
 use crate::ui::gui::processing;
+use crate::ui::state::{Current, ProcessingResult, State};
 
-use std::collections::HashMap;
 use std::path::PathBuf;
 
 use iced::executor;
@@ -12,156 +12,104 @@ use iced::{Application, Color, Command, Element, Length, Subscription, Theme};
 
 #[derive(Debug, Clone)]
 pub enum Message {
+    Idle,
     Processing(processing::Event),
-    Keyboard(iced::keyboard::Event, iced::event::Status),
-    Confirm(Confirmation),
-    ToggleLogs,
-    SetCustomize(String),
+    Action(Action),
+    ToggleLog,
+    ToggleDebug,
     CustomizeInput(String),
     CustomizeSubmit,
+    Quit,
+    MaybeShortcut(KeyCode),
 }
 
 pub struct Window {
     matchers: Vec<Box<dyn Matcher>>,
     paths: Vec<PathBuf>,
+    processing_state: ProcessingState,
     state: State,
-    progress: Progress,
     log: bool,
     debug: bool,
 }
 
 #[derive(Default)]
-enum State {
+enum ProcessingState {
     #[default]
     Booting,
     Processing(processing::Connection),
     Finished,
 }
 
-#[derive(Default)]
-struct Progress {
-    index: usize,
-    current: Current,
-    logs: Vec<ProcessingResult>,
-}
-
-#[derive(Default)]
-enum Current {
-    #[default]
-    None,
-    Path(PathBuf),
-    Confirm(Change),
-    Rescue(Change),
-}
-
-struct Change {
-    replacement: Replacement,
-    alternatives: HashMap<String, Replacement>,
-    customize: Option<String>,
-}
-
-impl Change {
-    fn customize_button(&self) -> Option<Element<'_, Message>> {
-        if self.customize.is_none() || !self.alternatives.is_empty() {
-            Some(
-                simple_button(
-                    "Custom",
-                    Message::SetCustomize(
-                        self.replacement.new_file_stem.clone(),
-                    ),
-                )
-                .into(),
-            )
-        } else {
-            None
-        }
-    }
-
-    fn new_confirm(
-        replacement: Replacement,
-        matchers: &[Box<dyn Matcher>],
-    ) -> Self {
-        let path_buf = replacement.path();
-        let path = path_buf.as_path();
-
-        Self {
-            alternatives: matchers
-                .iter()
-                .filter_map(|matcher| {
-                    matcher.check(path).and_then(|rep| {
-                        // Skip alternatives similar to the replacement
-                        if rep.new_file_stem == replacement.new_file_stem {
-                            None
-                        } else {
-                            Some((matcher.name().to_string(), rep))
-                        }
-                    })
-                })
-                .collect(),
-            replacement,
-            customize: None,
-        }
-    }
-
-    fn new_current_confirm(
-        replacement: Replacement,
-        matchers: &[Box<dyn Matcher>],
-    ) -> Current {
-        Current::Confirm(Self::new_confirm(replacement, matchers))
-    }
-
-    fn new_rescue(replacement: Replacement) -> Self {
-        Self {
-            replacement,
-            alternatives: Default::default(),
-            customize: None,
-        }
-    }
-
-    fn new_current_rescue(replacement: Replacement) -> Current {
-        Current::Rescue(Self::new_rescue(replacement))
-    }
-}
-
-#[derive(Clone)]
-enum ProcessingResult {
-    Success(Replacement),
-    Error(PathBuf, String),
-}
-
-impl std::fmt::Display for ProcessingResult {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Self::Success(rep) => write!(f, "{}", rep),
-            Self::Error(_path, error) => write!(f, "{}", error),
-        }
-    }
-}
-
 impl Window {
-    fn confirm(&mut self, conf: Confirmation) {
-        if let State::Processing(connection) = &mut self.state {
-            match self.progress.current {
-                Current::Confirm(_) => {
-                    connection.send(conf);
-                }
-                Current::Rescue(_) => match conf {
-                    Confirmation::Replace(_)
-                    | Confirmation::Abort
-                    | Confirmation::Skip
-                    | Confirmation::Refuse => connection.send(conf),
-                    _ => {}
+    fn execute(&mut self, action: Action) -> Command<Message> {
+        match action {
+            Action::Customize(rep) => {
+                self.state.current.customize(rep.new_file_stem.clone());
+
+                iced::widget::focus_next()
+            }
+            _ => self.send_confirmation(
+                action.try_into().expect("Customize handled locally"),
+            ),
+        }
+    }
+
+    fn send_confirmation(&mut self, conf: Confirmation) -> Command<Message> {
+        use ProcessingState::Processing;
+
+        if !self.state.actions.contains(conf.clone().into()) {
+            return Command::none();
+        }
+
+        if let Processing(connection) = &mut self.processing_state {
+            let mut connection = connection.clone();
+
+            return Command::perform(
+                async move {
+                    connection.send_async(conf).await;
                 },
-                _ => {}
+                |_| Message::Idle,
+            );
+        }
+
+        Command::none()
+    }
+
+    fn update_processing_event(
+        &mut self,
+        event: processing::Event,
+    ) -> Command<Message> {
+        use processing::Event::*;
+
+        log::debug!("Processing event: {:?}", event);
+
+        match event {
+            Ready(connection) => {
+                self.processing_state = ProcessingState::Processing(connection);
+            }
+            Processing(path) => {
+                self.state.set_current_path(path);
+            }
+            ProcessingOk(rep) => {
+                self.state.success(rep);
+            }
+            ProcessingErr(path, error) => {
+                self.state.failure(path, error);
+            }
+            Confirm(rep) => {
+                self.state.set_current_confirm(rep, &self.matchers);
+            }
+            Rescue(rep) => {
+                self.state.set_current_rescue(rep);
+            }
+            Finished | Aborted => {
+                self.processing_state = ProcessingState::Finished;
+
+                return iced::window::close();
             }
         }
-    }
 
-    fn toggle_log(&mut self) {
-        self.log = !self.log;
-    }
-    fn toggle_debug(&mut self) {
-        self.debug = !self.debug;
+        Command::none()
     }
 }
 
@@ -172,12 +120,13 @@ impl Application for Window {
     type Executor = executor::Default;
 
     fn new((matchers, paths): Self::Flags) -> (Self, Command<Message>) {
+        let len = paths.len();
         (
             Window {
                 matchers,
                 paths,
-                state: State::default(),
-                progress: Progress::default(),
+                processing_state: ProcessingState::default(),
+                state: State::new(len),
                 log: false,
                 debug: false,
             },
@@ -190,126 +139,49 @@ impl Application for Window {
     }
 
     fn update(&mut self, message: Message) -> Command<Message> {
-        use processing::Event;
-
         match message {
-            Message::Processing(event) => {
-                log::debug!("Processing event: {:?}", event);
-                match event {
-                    Event::Ready(connection) => {
-                        self.state = State::Processing(connection);
-
-                        Command::none()
-                    }
-                    Event::Processing(path) => {
-                        self.progress.current = Current::Path(path);
-
-                        Command::none()
-                    }
-                    Event::ProcessingOk(rep) => {
-                        self.progress.index += 1;
-                        self.progress.logs.push(ProcessingResult::Success(rep));
-
-                        Command::none()
-                    }
-                    Event::ProcessingErr(path, error) => {
-                        self.progress.index += 1;
-                        self.progress
-                            .logs
-                            .push(ProcessingResult::Error(path, error));
-
-                        Command::none()
-                    }
-                    Event::Confirm(rep) => {
-                        self.progress.current =
-                            Change::new_current_confirm(rep, &self.matchers);
-
-                        Command::none()
-                    }
-                    Event::Rescue(rep) => {
-                        self.progress.current = Change::new_current_rescue(rep);
-
-                        Command::none()
-                    }
-                    Event::Finished | Event::Aborted => {
-                        self.state = State::Finished;
-
-                        iced::window::close()
-                    }
-                }
-            }
-            Message::ToggleLogs => {
-                self.toggle_log();
+            Message::Idle => Command::none(),
+            Message::Processing(event) => self.update_processing_event(event),
+            Message::ToggleLog => {
+                self.log = !self.log;
 
                 Command::none()
             }
-            Message::SetCustomize(string) => {
-                match &mut self.progress.current {
-                    Current::Confirm(change) | Current::Rescue(change) => {
-                        change.customize = Some(string)
-                    }
-                    _ => {}
-                };
+            Message::ToggleDebug => {
+                self.debug = !self.debug;
 
-                iced::widget::focus_next()
+                Command::none()
             }
             Message::CustomizeInput(string) => {
-                match &mut self.progress.current {
-                    Current::Confirm(change) | Current::Rescue(change) => {
-                        change.customize = Some(string)
-                    }
-                    _ => {}
-                };
+                self.state.current.customize(string);
 
                 Command::none()
             }
             Message::CustomizeSubmit => {
-                match &self.progress.current {
-                    Current::Confirm(change) | Current::Rescue(change) => {
-                        if let Some(value) = change.customize.clone() {
-                            let mut rep = change.replacement.clone();
-                            rep.new_file_stem = value;
-                            self.confirm(Confirmation::Replace(rep));
-                        }
-                    }
-                    _ => {}
+                if let Some(rep) = self.state.current.customized_replacement() {
+                    self.send_confirmation(Confirmation::Replace(rep))
+                } else {
+                    Command::none()
                 }
-
-                Command::none()
             }
-            Message::Confirm(confirmation) => {
-                self.confirm(confirmation);
-                Command::none()
-            }
-            Message::Keyboard(event, status) => match event {
-                iced::keyboard::Event::KeyPressed {
-                    key_code,
-                    modifiers,
-                } => {
-                    if modifiers.control() && key_code == KeyCode::Q {
-                        iced::window::close()
-                    } else if modifiers.is_empty()
-                        && status == iced::event::Status::Ignored
-                    {
-                        match key_code {
-                            KeyCode::Y => self.confirm(Confirmation::Accept),
-                            KeyCode::A => self.confirm(Confirmation::Always),
-                            KeyCode::S => self.confirm(Confirmation::Skip),
-                            KeyCode::R => self.confirm(Confirmation::Refuse),
-                            KeyCode::I => self.confirm(Confirmation::Ignore),
-                            KeyCode::Q => self.confirm(Confirmation::Abort),
-                            KeyCode::L => self.toggle_log(),
-                            KeyCode::D => self.toggle_debug(),
-                            _ => {}
-                        };
-
-                        Command::none()
+            Message::Action(action) => self.execute(action),
+            Message::Quit => iced::window::close(),
+            Message::MaybeShortcut(key_code) => {
+                let predicate = |action: &&Action| {
+                    if let Some(code) = iced_shortcut_for(action) {
+                        std::mem::discriminant(&key_code)
+                            == std::mem::discriminant(&code)
                     } else {
-                        Command::none()
+                        false
                     }
+                };
+
+                if let Some(action) = self.state.actions.find(predicate) {
+                    self.execute(action)
+                } else {
+                    Command::none()
                 }
-                _ => Command::none(),
-            },
+            }
         }
     }
 
@@ -317,11 +189,8 @@ impl Application for Window {
         Subscription::batch(vec![
             processing::connect(&self.matchers, &self.paths)
                 .map(Message::Processing),
-            iced::subscription::events_with(|event, status| match event {
-                iced::Event::Keyboard(kevent) => {
-                    Some(Message::Keyboard(kevent, status))
-                }
-                _ => None,
+            iced::subscription::events_with(|event, status| {
+                filter_events(event, status)
             }),
         ])
     }
@@ -330,7 +199,7 @@ impl Application for Window {
         use iced::alignment::Alignment;
         use iced::widget::{column, container, progress_bar, row, text, Row};
 
-        let message: Element<_> = match &self.progress.current {
+        let message: Element<_> = match &self.state.current {
             Current::None => text("Booting").into(),
             Current::Path(path) => {
                 text(format!("Processing {}", path.display())).into()
@@ -359,39 +228,51 @@ impl Application for Window {
             }
         };
 
-        let mut buttons = Row::with_children(match &self.progress.current {
+        let mut buttons = Row::with_children(match &self.state.current {
             Current::None | Current::Path(_) => vec![],
             Current::Confirm(change) => {
                 let mut buttons = vec![
-                    conf_button("Yes", Confirmation::Accept).into(),
-                    conf_button("Always", Confirmation::Always).into(),
+                    action_button("Yes", Action::Accept).into(),
+                    action_button("Always", Action::Always).into(),
                 ];
 
-                if let Some(button) = change.customize_button() {
-                    buttons.push(button);
+                if change.show_customize_button() {
+                    buttons.push(
+                        action_button(
+                            "Custom",
+                            Action::Customize(change.replacement.clone()),
+                        )
+                        .into(),
+                    );
                 }
-                buttons.push(conf_button("Skip", Confirmation::Skip).into());
-                buttons
-                    .push(conf_button("Refuse", Confirmation::Refuse).into());
-                buttons
-                    .push(conf_button("Ignore", Confirmation::Ignore).into());
-                buttons.push(conf_button("Quit", Confirmation::Abort).into());
+
+                buttons.push(action_button("Skip", Action::Skip).into());
+                buttons.push(action_button("Refuse", Action::Refuse).into());
+                buttons.push(action_button("Ignore", Action::Ignore).into());
+                buttons.push(action_button("Quit", Action::Abort).into());
                 buttons
             }
             Current::Rescue(change) => {
                 let mut buttons = vec![];
 
-                if let Some(button) = change.customize_button() {
-                    buttons.push(button);
+                if change.show_customize_button() {
+                    buttons.push(
+                        action_button(
+                            "Custom",
+                            Action::Customize(change.replacement.clone()),
+                        )
+                        .into(),
+                    );
                 }
-                buttons.push(conf_button("Skip", Confirmation::Skip).into());
-                buttons.push(conf_button("Quit", Confirmation::Abort).into());
+
+                buttons.push(action_button("Skip", Action::Skip).into());
+                buttons.push(action_button("Quit", Action::Abort).into());
                 buttons
             }
         })
         .spacing(10);
 
-        buttons = buttons.push(simple_button("Logs", Message::ToggleLogs));
+        buttons = buttons.push(simple_button("Logs", Message::ToggleLog));
 
         let buttons =
             container(buttons).width(Length::Fill).center_x().center_y();
@@ -402,7 +283,7 @@ impl Application for Window {
             .padding(20)
             .spacing(10);
 
-        if let Current::Confirm(change) = &self.progress.current {
+        if let Current::Confirm(change) = &self.state.current {
             if !change.alternatives.is_empty() {
                 content = content.push(text("Or choose from an alternatives"));
                 content = content.push(
@@ -413,15 +294,13 @@ impl Application for Window {
                                 .values()
                                 .map(|rep| {
                                     row![
-                                        conf_button(
+                                        action_button(
                                             "Use",
-                                            Confirmation::Replace(rep.clone())
+                                            Action::Replace(rep.clone())
                                         ),
-                                        simple_button(
+                                        action_button(
                                             "Customize",
-                                            Message::SetCustomize(
-                                                rep.new_file_stem.clone()
-                                            )
+                                            Action::Customize(rep.clone())
                                         ),
                                         text(rep.new_file_name()),
                                     ]
@@ -438,7 +317,7 @@ impl Application for Window {
             }
         }
 
-        match &self.progress.current {
+        match &self.state.current {
             Current::Confirm(change) | Current::Rescue(change) => {
                 if let Some(string) = &change.customize {
                     content = content.push(customize(string));
@@ -448,12 +327,12 @@ impl Application for Window {
         }
 
         content = content.push(progress_bar(
-            0.0..=(self.paths.len() as f32),
-            self.progress.index as f32,
+            0.0..=(self.state.len as f32),
+            self.state.index as f32,
         ));
 
         if self.log {
-            content = content.push(scrollable_logs(&self.progress.logs));
+            content = content.push(scrollable_logs(&self.state.logs));
         }
 
         let mut content: Element<_> = content.into();
@@ -468,6 +347,44 @@ impl Application for Window {
     fn theme(&self) -> Theme {
         Theme::Dark
     }
+}
+
+fn filter_events(
+    event: iced::event::Event,
+    status: iced::event::Status,
+) -> Option<Message> {
+    use iced::{
+        event::Status::Ignored, keyboard::Event::KeyPressed, Event::Keyboard,
+    };
+
+    if let Keyboard(KeyPressed {
+        key_code,
+        modifiers,
+    }) = event
+    {
+        // Whatever the context, ctrl-Q quits the app
+        if modifiers.control() && key_code == KeyCode::Q {
+            return Some(Message::Quit);
+        }
+
+        // Keyboard shortcuts
+        if status == Ignored && modifiers.is_empty() {
+            match key_code {
+                KeyCode::L => return Some(Message::ToggleLog),
+                KeyCode::D => return Some(Message::ToggleDebug),
+                _ => {}
+            }
+
+            if Actions::all()
+                .shortcuts_using(iced_shortcut_for)
+                .contains(&key_code)
+            {
+                return Some(Message::MaybeShortcut(key_code));
+            }
+        }
+    }
+
+    None
 }
 
 fn scrollable_logs(
@@ -504,11 +421,11 @@ fn simple_button(
     .on_press(message)
 }
 
-fn conf_button(
+fn action_button(
     label: &str,
-    confirmation: Confirmation,
+    action: Action,
 ) -> iced::widget::Button<'_, Message> {
-    simple_button(label, Message::Confirm(confirmation))
+    simple_button(label, Message::Action(action))
 }
 
 fn customize(string: &str) -> Element<'_, Message> {
@@ -519,4 +436,17 @@ fn customize(string: &str) -> Element<'_, Message> {
         .on_submit(Message::CustomizeSubmit)
         .padding(10)
         .into()
+}
+
+fn iced_shortcut_for(action: &Action) -> Option<KeyCode> {
+    match action {
+        Action::Accept => Some(KeyCode::Y),
+        Action::Always => Some(KeyCode::A),
+        Action::Replace(_) => None,
+        Action::Skip => Some(KeyCode::S),
+        Action::Refuse => Some(KeyCode::R),
+        Action::Ignore => Some(KeyCode::I),
+        Action::Abort => Some(KeyCode::Q),
+        Action::Customize(_) => Some(KeyCode::C),
+    }
 }

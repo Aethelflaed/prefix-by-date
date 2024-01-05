@@ -12,6 +12,9 @@ use std::path::{Path, PathBuf};
 use env_logger::Builder;
 type LogResult = std::result::Result<(), log::SetLoggerError>;
 
+mod actions;
+mod state;
+
 mod gui;
 mod text;
 

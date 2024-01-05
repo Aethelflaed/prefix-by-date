@@ -99,10 +99,11 @@ pub fn connect(
 pub struct Connection(mpsc::Sender<Confirmation>);
 
 impl Connection {
-    pub fn send(&mut self, confirmation: Confirmation) {
+    pub async fn send_async(&mut self, confirmation: Confirmation) {
         self.0
-            .try_send(confirmation)
-            .expect("Send confirmation to processing")
+            .send(confirmation)
+            .await
+            .expect("Send confirmation to processing");
     }
 }
 
