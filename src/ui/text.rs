@@ -6,9 +6,10 @@ use crate::processing::{
     self, Communication, Confirmation, Error, Processing, Reporter,
 };
 use crate::replacement::Replacement;
-use crate::ui;
+use crate::ui::{self, actions::Action, state::{State, Current}};
 
 use std::boxed::Box;
+use std::cell::RefCell;
 use std::fmt;
 use std::path::{Path, PathBuf};
 
@@ -20,6 +21,7 @@ use indicatif::{MultiProgress, ProgressBar};
 type LogResult = std::result::Result<(), log::SetLoggerError>;
 
 pub struct Text {
+    state: RefCell<State>,
     theme: ColorfulTheme,
     bar: Option<ProgressBar>,
     multi_progress: MultiProgress,
@@ -84,6 +86,7 @@ impl Text {
 
     fn build(multi_progress: MultiProgress) -> Self {
         Self {
+            state: RefCell::<State>::default(),
             theme: ColorfulTheme::default(),
             multi_progress,
             bar: None,
@@ -106,12 +109,12 @@ impl Text {
         let items = vec![
             "Yes, accept the rename and continue",
             "Always accept similar rename and continue",
+            "View other possibilities",
+            "Customize the rename",
             "Skip renaming this file",
             "Refuse the rename and continue",
             "Ignore all similar rename and continue",
             "Quit now, refusing this rename",
-            "View other possibilities",
-            "Customize the rename",
         ];
 
         let selection = FuzzySelect::with_theme(&self.theme)
@@ -123,18 +126,18 @@ impl Text {
         match selection {
             0 => Confirmation::Accept,
             1 => Confirmation::Always,
-            2 => Confirmation::Skip,
-            3 => Confirmation::Refuse,
-            4 => Confirmation::Ignore,
-            5 => Confirmation::Abort,
-            6 => match self.view(replacement) {
+            2 => match self.view(replacement) {
                 Confirmation::Abort => self.confirm(replacement),
                 other => other,
             },
-            7 => match self.customize(replacement) {
+            3 => match self.customize(replacement) {
                 Confirmation::Abort => self.confirm(replacement),
                 other => other,
             },
+            4 => Confirmation::Skip,
+            5 => Confirmation::Refuse,
+            6 => Confirmation::Ignore,
+            7 => Confirmation::Abort,
             wtf => panic!("Unkown option {}", wtf),
         }
     }
@@ -206,6 +209,26 @@ impl Text {
             Confirmation::Abort
         }
     }
+
+    fn rescue(
+        &self,
+        replacement: &Replacement,
+    ) -> processing::Result<Replacement> {
+        let path = replacement.path();
+        let error = Error::NoMatch(path.clone());
+
+        println!("No match found for {:?}.", path);
+
+        match self.customize(&replacement) {
+            Confirmation::Abort => Err(error),
+            Confirmation::Replace(replacement) => Ok(replacement),
+            Confirmation::Skip | Confirmation::Refuse => Err(error),
+            other => {
+                log::warn!("Unexpected rescue confirmation: {:?}", other);
+                Err(error)
+            }
+        }
+    }
 }
 
 impl Drop for Text {
@@ -233,6 +256,7 @@ impl ui::Interface for Text {
     ) -> Result<()> {
         self.matchers = matchers.to_owned();
 
+        self.state = RefCell::new(State::new(paths.len()));
         self.bar = Some(
             self.multi_progress
                 .add(ProgressBar::new(paths.len() as u64)),
@@ -253,17 +277,27 @@ impl ui::Interface for Text {
 
 impl Reporter for Text {
     fn setup(&self, _count: usize) {}
-    fn processing(&self, _path: &Path) {}
-    fn processing_ok(&self, _replacement: &Replacement) {
+    fn processing(&self, path: &Path) {
+        self.state.borrow_mut().set_current_path(path.to_path_buf());
+    }
+    fn processing_ok(&self, replacement: &Replacement) {
+        self.state.borrow_mut().success(replacement.clone());
         self.inc_progress();
     }
-    fn processing_err(&self, _path: &Path, _error: &Error) {
+    fn processing_err(&self, path: &Path, error: &Error) {
+        self.state
+            .borrow_mut()
+            .failure(path.to_path_buf(), format!("{}", error));
         self.inc_progress();
     }
 }
 
 impl Communication for Text {
     fn confirm(&self, replacement: &Replacement) -> Confirmation {
+        self.state
+            .borrow_mut()
+            .set_current_confirm(replacement.clone(), &self.matchers);
+
         Text::confirm(self, replacement)
     }
     fn rescue(&self, error: Error) -> processing::Result<Replacement> {
@@ -273,24 +307,32 @@ impl Communication for Text {
                     Ok(rep) => rep,
                     Err(_) => return Err(error),
                 };
-                println!("No match found for {:?}.", path);
-                match self.customize(&replacement) {
-                    Confirmation::Abort => Err(error),
-                    Confirmation::Replace(replacement) => Ok(replacement),
-                    Confirmation::Skip | Confirmation::Refuse => Err(error),
-                    other => {
-                        log::warn!(
-                            "Unexpected rescue confirmation: {:?}",
-                            other
-                        );
-                        Err(error)
-                    }
-                }
+
+                self.state
+                    .borrow_mut()
+                    .set_current_rescue(replacement.clone());
+
+                Text::rescue(self, &replacement)
             }
             _ => {
                 log::warn!("Unexpected rescue: {:?}", error);
                 Err(error)
             }
         }
+    }
+}
+
+fn prompt_for(action: &Action) -> Option<&'static str> {
+    match action {
+        Action::Accept => Some("Yes, accept the rename and continue"),
+        Action::Always => Some("Always accept similar rename and continue"),
+        Action::Customize(_) => Some("Customize the rename"),
+        Action::ViewAlternatives => Some("View other possibilities"),
+        Action::Replace(_) => None,
+        Action::Skip => Some("Skip renaming this file"),
+        Action::Refuse => Some("Refuse the rename and continue"),
+        Action::Ignore => Some("Ignore all similar rename and continue"),
+        Action::Abort => Some("Quit now, refusing this rename"),
+        Action::Cancel => None,
     }
 }

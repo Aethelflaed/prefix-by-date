@@ -401,12 +401,14 @@ fn iced_shortcut_for(action: &Action) -> Option<KeyCode> {
     match action {
         Action::Accept => Some(KeyCode::Y),
         Action::Always => Some(KeyCode::A),
+        Action::Customize(_) => Some(KeyCode::C),
+        Action::ViewAlternatives => None,
         Action::Replace(_) => None,
         Action::Skip => Some(KeyCode::S),
         Action::Refuse => Some(KeyCode::R),
         Action::Ignore => Some(KeyCode::I),
         Action::Abort => Some(KeyCode::Q),
-        Action::Customize(_) => Some(KeyCode::C),
+        Action::Cancel => None,
     }
 }
 

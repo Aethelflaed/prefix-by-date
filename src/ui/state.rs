@@ -5,7 +5,7 @@ use crate::ui::actions::Actions;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct State {
     /// Currently processing item index
     index: usize,
@@ -117,7 +117,7 @@ impl State {
 }
 
 /// Element currently being processed
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub enum Current {
     #[default]
     None,
@@ -126,7 +126,7 @@ pub enum Current {
     Rescue(Change),
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct Change {
     pub replacement: Replacement,
     pub alternatives: HashMap<String, Replacement>,
@@ -150,7 +150,7 @@ impl Change {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum ProcessingResult {
     Success(Replacement),
     Failure(PathBuf, String),
