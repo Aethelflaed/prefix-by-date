@@ -3,8 +3,6 @@ use crate::replacement::Replacement;
 
 use crate::ui::state::Current;
 
-use std::borrow::Borrow;
-
 #[derive(Debug, Clone)]
 pub enum Action {
     Accept,
@@ -58,13 +56,8 @@ impl TryInto<Confirmation> for Action {
     }
 }
 
-#[derive(Debug, Default)]
-pub struct Actions {
-    actions: Vec<Action>,
-}
-
-impl From<&Current> for Actions {
-    fn from(current: &Current) -> Self {
+impl Action {
+    pub fn determine_for(current: &Current) -> Vec<Self> {
         match current {
             Current::Confirm(change) => {
                 let mut actions = vec![Action::Accept, Action::Always];
@@ -81,7 +74,8 @@ impl From<&Current> for Actions {
                     Action::Ignore,
                     Action::Abort,
                 ]);
-                Self { actions }
+
+                actions
             }
             Current::Rescue(change) => {
                 let mut actions = vec![];
@@ -94,59 +88,26 @@ impl From<&Current> for Actions {
                     Action::Refuse,
                     Action::Abort,
                 ]);
-                Self { actions }
+
+                actions
             }
-            _ => Actions::empty(),
-        }
-    }
-}
-
-impl Actions {
-    pub fn empty() -> Self {
-        Self::default()
-    }
-
-    pub fn all() -> Self {
-        Self {
-            actions: vec![
-                Action::Accept,
-                Action::Always,
-                Action::Customize(Replacement::default()),
-                Action::Replace(Replacement::default()),
-                Action::Skip,
-                Action::Refuse,
-                Action::Ignore,
-                Action::Abort,
-                Action::ViewAlternatives,
-                Action::Cancel,
-            ],
+            _ => vec![],
         }
     }
 
-    pub fn find<F>(&self, func: F) -> Option<Action>
-    where
-        F: Fn(&&Action) -> bool,
-    {
-        self.actions.iter().find(func).cloned()
-    }
-
-    // XXX bad naming, should probably be removed in favor of exposing iter
-    pub fn shortcuts_using<F, T>(&self, func: F) -> Vec<T>
-    where
-        F: Fn(&Action) -> Option<T>,
-    {
-        self.actions.iter().filter_map(func).collect()
-    }
-
-    pub fn contains<A>(&self, needle: A) -> bool
-    where
-        A: Borrow<Action>,
-    {
-        self.actions.contains(needle.borrow())
-    }
-
-    pub fn iter(&self) -> std::slice::Iter<'_, Action> {
-        self.actions.iter()
+    pub fn all() -> Vec<Self> {
+        vec![
+            Action::Accept,
+            Action::Always,
+            Action::Customize(Replacement::default()),
+            Action::Replace(Replacement::default()),
+            Action::Skip,
+            Action::Refuse,
+            Action::Ignore,
+            Action::Abort,
+            Action::ViewAlternatives,
+            Action::Cancel,
+        ]
     }
 }
 
@@ -174,7 +135,7 @@ mod tests {
     #[test]
     fn actions_from_current_none() {
         let current = Current::None;
-        assert!(Actions::from(&current).actions.is_empty());
+        assert!(Action::determine_for(&current).is_empty());
     }
 
     #[test]
@@ -182,7 +143,7 @@ mod tests {
         use std::path::PathBuf;
 
         let current = Current::Path(PathBuf::from("hello"));
-        assert!(Actions::from(&current).actions.is_empty());
+        assert!(Action::determine_for(&current).is_empty());
     }
 
     #[test]
@@ -191,22 +152,19 @@ mod tests {
 
         let change = Change::default();
         let current = Current::Confirm(change);
-        let actions = Actions::from(&current);
+        let actions = Action::determine_for(&current);
 
-        assert!(!actions.contains(Action::ViewAlternatives));
-        assert!(actions.contains(Action::Customize(Replacement::default())));
+        assert!(!actions.contains(&Action::ViewAlternatives));
+        assert!(actions.contains(&Action::Customize(Replacement::default())));
 
-        assert_eq!(actions.actions[0], Action::Accept);
-        assert_eq!(actions.actions[1], Action::Always);
-        assert_eq!(
-            actions.actions[2],
-            Action::Customize(Replacement::default())
-        );
-        assert_eq!(actions.actions[3], Action::Replace(Replacement::default()));
-        assert_eq!(actions.actions[4], Action::Skip);
-        assert_eq!(actions.actions[5], Action::Refuse);
-        assert_eq!(actions.actions[6], Action::Ignore);
-        assert_eq!(actions.actions[7], Action::Abort);
+        assert_eq!(actions[0], Action::Accept);
+        assert_eq!(actions[1], Action::Always);
+        assert_eq!(actions[2], Action::Customize(Replacement::default()));
+        assert_eq!(actions[3], Action::Replace(Replacement::default()));
+        assert_eq!(actions[4], Action::Skip);
+        assert_eq!(actions[5], Action::Refuse);
+        assert_eq!(actions[6], Action::Ignore);
+        assert_eq!(actions[7], Action::Abort);
     }
 
     #[test]
@@ -218,18 +176,18 @@ mod tests {
             ..Change::default()
         };
         let current = Current::Confirm(change);
-        let actions = Actions::from(&current);
+        let actions = Action::determine_for(&current);
 
-        assert!(!actions.contains(Action::ViewAlternatives));
-        assert!(!actions.contains(Action::Customize(Replacement::default())));
+        assert!(!actions.contains(&Action::ViewAlternatives));
+        assert!(!actions.contains(&Action::Customize(Replacement::default())));
 
-        assert_eq!(actions.actions[0], Action::Accept);
-        assert_eq!(actions.actions[1], Action::Always);
-        assert_eq!(actions.actions[2], Action::Replace(Replacement::default()));
-        assert_eq!(actions.actions[3], Action::Skip);
-        assert_eq!(actions.actions[4], Action::Refuse);
-        assert_eq!(actions.actions[5], Action::Ignore);
-        assert_eq!(actions.actions[6], Action::Abort);
+        assert_eq!(actions[0], Action::Accept);
+        assert_eq!(actions[1], Action::Always);
+        assert_eq!(actions[2], Action::Replace(Replacement::default()));
+        assert_eq!(actions[3], Action::Skip);
+        assert_eq!(actions[4], Action::Refuse);
+        assert_eq!(actions[5], Action::Ignore);
+        assert_eq!(actions[6], Action::Abort);
     }
 
     #[test]
@@ -245,23 +203,20 @@ mod tests {
             ..Change::default()
         };
         let current = Current::Confirm(change);
-        let actions = Actions::from(&current);
+        let actions = Action::determine_for(&current);
 
-        assert!(actions.contains(Action::ViewAlternatives));
-        assert!(actions.contains(Action::Customize(Replacement::default())));
+        assert!(actions.contains(&Action::ViewAlternatives));
+        assert!(actions.contains(&Action::Customize(Replacement::default())));
 
-        assert_eq!(actions.actions[0], Action::Accept);
-        assert_eq!(actions.actions[1], Action::Always);
-        assert_eq!(actions.actions[2], Action::ViewAlternatives);
-        assert_eq!(
-            actions.actions[3],
-            Action::Customize(Replacement::default())
-        );
-        assert_eq!(actions.actions[4], Action::Replace(Replacement::default()));
-        assert_eq!(actions.actions[5], Action::Skip);
-        assert_eq!(actions.actions[6], Action::Refuse);
-        assert_eq!(actions.actions[7], Action::Ignore);
-        assert_eq!(actions.actions[8], Action::Abort);
+        assert_eq!(actions[0], Action::Accept);
+        assert_eq!(actions[1], Action::Always);
+        assert_eq!(actions[2], Action::ViewAlternatives);
+        assert_eq!(actions[3], Action::Customize(Replacement::default()));
+        assert_eq!(actions[4], Action::Replace(Replacement::default()));
+        assert_eq!(actions[5], Action::Skip);
+        assert_eq!(actions[6], Action::Refuse);
+        assert_eq!(actions[7], Action::Ignore);
+        assert_eq!(actions[8], Action::Abort);
     }
 
     #[test]
@@ -278,10 +233,10 @@ mod tests {
             ..Change::default()
         };
         let current = Current::Confirm(change);
-        let actions = Actions::from(&current);
+        let actions = Action::determine_for(&current);
 
-        assert!(actions.contains(Action::ViewAlternatives));
-        assert!(actions.contains(Action::Customize(Replacement::default())));
+        assert!(actions.contains(&Action::ViewAlternatives));
+        assert!(actions.contains(&Action::Customize(Replacement::default())));
     }
 
     #[test]
@@ -290,18 +245,15 @@ mod tests {
 
         let change = Change::default();
         let current = Current::Rescue(change);
-        let actions = Actions::from(&current);
+        let actions = Action::determine_for(&current);
 
-        assert!(actions.contains(Action::Customize(Replacement::default())));
+        assert!(actions.contains(&Action::Customize(Replacement::default())));
 
-        assert_eq!(
-            actions.actions[0],
-            Action::Customize(Replacement::default())
-        );
-        assert_eq!(actions.actions[1], Action::Replace(Replacement::default()));
-        assert_eq!(actions.actions[2], Action::Skip);
-        assert_eq!(actions.actions[3], Action::Refuse);
-        assert_eq!(actions.actions[4], Action::Abort);
+        assert_eq!(actions[0], Action::Customize(Replacement::default()));
+        assert_eq!(actions[1], Action::Replace(Replacement::default()));
+        assert_eq!(actions[2], Action::Skip);
+        assert_eq!(actions[3], Action::Refuse);
+        assert_eq!(actions[4], Action::Abort);
     }
 
     #[test]
@@ -313,42 +265,36 @@ mod tests {
             ..Change::default()
         };
         let current = Current::Rescue(change);
-        let actions = Actions::from(&current);
+        let actions = Action::determine_for(&current);
 
-        assert!(!actions.contains(Action::Customize(Replacement::default())));
+        assert!(!actions.contains(&Action::Customize(Replacement::default())));
 
-        assert_eq!(
-            &actions.actions[0],
-            &Action::Replace(Replacement::default())
-        );
-        assert_eq!(actions.actions[1], Action::Skip);
-        assert_eq!(actions.actions[2], Action::Refuse);
-        assert_eq!(actions.actions[3], Action::Abort);
+        assert_eq!(actions[0], Action::Replace(Replacement::default()));
+        assert_eq!(actions[1], Action::Skip);
+        assert_eq!(actions[2], Action::Refuse);
+        assert_eq!(actions[3], Action::Abort);
     }
 
     #[test]
     fn all() {
-        let actions = Actions::all();
+        let actions = Action::all();
 
-        assert_eq!(actions.actions[0], Action::Accept);
-        assert_eq!(actions.actions[1], Action::Always);
-        assert_eq!(
-            actions.actions[2],
-            Action::Customize(Replacement::default())
-        );
-        assert_eq!(actions.actions[3], Action::Replace(Replacement::default()));
-        assert_eq!(actions.actions[4], Action::Skip);
-        assert_eq!(actions.actions[5], Action::Refuse);
-        assert_eq!(actions.actions[6], Action::Ignore);
-        assert_eq!(actions.actions[7], Action::Abort);
+        assert_eq!(actions[0], Action::Accept);
+        assert_eq!(actions[1], Action::Always);
+        assert_eq!(actions[2], Action::Customize(Replacement::default()));
+        assert_eq!(actions[3], Action::Replace(Replacement::default()));
+        assert_eq!(actions[4], Action::Skip);
+        assert_eq!(actions[5], Action::Refuse);
+        assert_eq!(actions[6], Action::Ignore);
+        assert_eq!(actions[7], Action::Abort);
     }
 
     #[test]
-    fn shortcuts_using() {
-        let actions = Actions::all();
+    fn iter() {
+        let actions = Action::all();
 
         assert_eq!(
-            actions.shortcuts_using(shortcut_for),
+            actions.iter().filter_map(shortcut_for).collect::<Vec<_>>(),
             vec!['Y', 'A', 'C', 'S', 'R', 'I', 'Q', 'V']
         );
 
@@ -358,7 +304,7 @@ mod tests {
         };
 
         assert_eq!(
-            actions.shortcuts_using(func),
+            actions.iter().filter_map(func).collect::<Vec<_>>(),
             vec!['Y', 'A', 'C', '?', 'S', 'R', 'I', 'Q', 'V', '?']
         );
     }
@@ -395,15 +341,23 @@ mod tests {
                 Replacement::default()
             ))
         );
+        assert_eq!(
+            Err(()),
+            TryInto::<Confirmation>::try_into(Action::ViewAlternatives)
+        );
+        assert_eq!(Err(()), TryInto::<Confirmation>::try_into(Action::Cancel));
     }
 
     #[test]
     fn find() {
-        let actions = Actions::all();
+        let actions = Action::all();
 
         assert_eq!(
             Some(Action::Abort),
-            actions.find(|act| { shortcut_for(act) == Some('Q') })
+            actions
+                .iter()
+                .find(|act| { shortcut_for(act) == Some('Q') })
+                .cloned()
         );
     }
 }

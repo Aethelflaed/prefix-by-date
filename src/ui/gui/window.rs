@@ -1,6 +1,6 @@
 use crate::matcher::Matcher;
 use crate::processing::Confirmation;
-use crate::ui::actions::{Action, Actions};
+use crate::ui::actions::Action;
 use crate::ui::gui::processing;
 use crate::ui::state::{Current, ProcessingResult, State};
 
@@ -59,7 +59,7 @@ impl Window {
 
         self.state.set_current_resolving(conf.clone());
 
-        if !self.state.actions().contains(Action::from(&conf)) {
+        if !self.state.actions().contains(&Action::from(&conf)) {
             return Command::none();
         }
 
@@ -177,7 +177,9 @@ impl Application for Window {
                     }
                 };
 
-                if let Some(action) = self.state.actions().find(predicate) {
+                if let Some(action) =
+                    self.state.actions().iter().find(predicate).cloned()
+                {
                     self.execute(action)
                 } else {
                     Command::none()
@@ -227,9 +229,7 @@ impl Application for Window {
                 ]
                 .into()
             }
-            _ => {
-                text("Processing...").into()
-            }
+            _ => text("Processing...").into(),
         };
 
         let mut buttons = Row::with_children(
@@ -346,9 +346,9 @@ fn filter_events(
                 _ => {}
             }
 
-            if Actions::all()
-                .shortcuts_using(iced_shortcut_for)
-                .contains(&key_code)
+            if Action::all()
+                .iter()
+                .any(|action| iced_shortcut_for(action) == Some(key_code))
             {
                 return Some(Message::MaybeShortcut(key_code));
             }

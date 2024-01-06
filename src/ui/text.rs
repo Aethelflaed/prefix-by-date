@@ -338,11 +338,7 @@ impl<'a> Resolver<'a> {
         use dialoguer::FuzzySelect;
 
         if let Some(replacement) = self.state.customized_replacement() {
-            let options = [
-                "Yes",
-                "No",
-                "Customize",
-            ];
+            let options = ["Yes", "No", "Customize"];
 
             let selection = FuzzySelect::with_theme(&self.ui.theme)
                 .with_prompt(format!(
@@ -355,8 +351,9 @@ impl<'a> Resolver<'a> {
 
             match selection {
                 0 => {
-                    self.state
-                        .set_current_resolving(Confirmation::Replace(replacement));
+                    self.state.set_current_resolving(Confirmation::Replace(
+                        replacement,
+                    ));
                 }
                 1 => {
                     self.state.cancel_customize();

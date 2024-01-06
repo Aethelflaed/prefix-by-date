@@ -1,7 +1,7 @@
 use crate::matcher::Matcher;
 use crate::processing::Confirmation;
 use crate::replacement::Replacement;
-use crate::ui::actions::Actions;
+use crate::ui::actions::Action;
 
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -15,7 +15,7 @@ pub struct State {
     /// What is currently being processed
     current: Current,
     /// Relevant actions for the current item
-    actions: Actions,
+    actions: Vec<Action>,
     logs: Vec<ProcessingResult>,
 }
 
@@ -29,7 +29,7 @@ impl State {
 
     pub fn set_current_path(&mut self, path: PathBuf) {
         self.current = Current::Path(path);
-        self.actions = Actions::from(&self.current);
+        self.actions = Action::determine_for(&self.current);
     }
     pub fn set_current_confirm(
         &mut self,
@@ -54,12 +54,12 @@ impl State {
             })
             .collect();
         self.current = Current::Confirm(change);
-        self.actions = Actions::from(&self.current);
+        self.actions = Action::determine_for(&self.current);
     }
     pub fn set_current_rescue(&mut self, replacement: Replacement) {
         let change = Change::new(replacement);
         self.current = Current::Rescue(change);
-        self.actions = Actions::from(&self.current);
+        self.actions = Action::determine_for(&self.current);
     }
     pub fn set_current_resolving(&mut self, conf: Confirmation) {
         if let Some(change) = self.change() {
@@ -81,12 +81,12 @@ impl State {
     pub fn customize(&mut self, string: String) {
         self.change_mut()
             .map(|change| change.customize = Some(string));
-        self.actions = Actions::from(&self.current);
+        self.actions = Action::determine_for(&self.current);
     }
 
     pub fn cancel_customize(&mut self) {
         self.change_mut().map(|change| change.customize = None);
-        self.actions = Actions::from(&self.current);
+        self.actions = Action::determine_for(&self.current);
     }
 
     pub fn change(&self) -> Option<&Change> {
@@ -124,7 +124,7 @@ impl State {
         &self.current
     }
 
-    pub fn actions(&self) -> &Actions {
+    pub fn actions(&self) -> &[Action] {
         &self.actions
     }
 
