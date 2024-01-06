@@ -6,7 +6,11 @@ use crate::processing::{
     self, Communication, Confirmation, Error, Processing, Reporter,
 };
 use crate::replacement::Replacement;
-use crate::ui::{self, actions::Action, state::{State, Current}};
+use crate::ui::{
+    self,
+    actions::Action,
+    state::{Current, State},
+};
 
 use std::boxed::Box;
 use std::cell::RefCell;
@@ -100,135 +104,6 @@ impl Text {
             bar.inc(1);
         }
     }
-
-    fn confirm(&self, replacement: &Replacement) -> Confirmation {
-        use dialoguer::FuzzySelect;
-
-        println!("Proceed with {}?", ReplacementDisplay::from(replacement));
-
-        let items = vec![
-            "Yes, accept the rename and continue",
-            "Always accept similar rename and continue",
-            "View other possibilities",
-            "Customize the rename",
-            "Skip renaming this file",
-            "Refuse the rename and continue",
-            "Ignore all similar rename and continue",
-            "Quit now, refusing this rename",
-        ];
-
-        let selection = FuzzySelect::with_theme(&self.theme)
-            .with_prompt("What do you want to do?")
-            .items(&items)
-            .interact()
-            .unwrap();
-
-        match selection {
-            0 => Confirmation::Accept,
-            1 => Confirmation::Always,
-            2 => match self.view(replacement) {
-                Confirmation::Abort => self.confirm(replacement),
-                other => other,
-            },
-            3 => match self.customize(replacement) {
-                Confirmation::Abort => self.confirm(replacement),
-                other => other,
-            },
-            4 => Confirmation::Skip,
-            5 => Confirmation::Refuse,
-            6 => Confirmation::Ignore,
-            7 => Confirmation::Abort,
-            wtf => panic!("Unkown option {}", wtf),
-        }
-    }
-
-    fn view(&self, replacement: &Replacement) -> Confirmation {
-        use dialoguer::console::{pad_str, Alignment};
-        use dialoguer::FuzzySelect;
-
-        let mut replacements: Vec<Replacement> = vec![];
-        let mut options: Vec<String> = vec![];
-
-        for matcher in &self.matchers {
-            if let Some(replacement) =
-                matcher.check(replacement.path().as_path())
-            {
-                options.push(format!(
-                    "{}: {}",
-                    pad_str(
-                        matcher.name(),
-                        self.matcher_name_length,
-                        Alignment::Left,
-                        None
-                    ),
-                    replacement
-                ));
-                replacements.push(replacement);
-            }
-        }
-
-        options.push(String::from("Abort"));
-
-        let selection = FuzzySelect::with_theme(&self.theme)
-            .with_prompt("What do you want to do?")
-            .items(&options)
-            .interact()
-            .unwrap();
-
-        if let Some(replacement) = replacements.get(selection) {
-            Confirmation::Replace(replacement.clone())
-        } else {
-            Confirmation::Abort
-        }
-    }
-
-    fn customize(&self, rep: &Replacement) -> Confirmation {
-        use dialoguer::{Confirm, Input};
-
-        let mut replacement = rep.clone();
-
-        let new_file_stem: String = Input::with_theme(&self.theme)
-            .with_prompt("New file name?")
-            .with_initial_text(replacement.new_file_stem)
-            .interact_text()
-            .unwrap();
-
-        replacement.new_file_stem = new_file_stem;
-
-        let confirmed = Confirm::with_theme(&self.theme)
-            .with_prompt(format!(
-                "Proceed with {}?",
-                ReplacementDisplay::from(&replacement)
-            ))
-            .interact()
-            .unwrap();
-
-        if confirmed {
-            Confirmation::Replace(replacement)
-        } else {
-            Confirmation::Abort
-        }
-    }
-
-    fn rescue(
-        &self,
-        replacement: &Replacement,
-    ) -> processing::Result<Replacement> {
-        let path = replacement.path();
-        let error = Error::NoMatch(path.clone());
-
-        println!("No match found for {:?}.", path);
-
-        match self.customize(&replacement) {
-            Confirmation::Abort => Err(error),
-            Confirmation::Replace(replacement) => Ok(replacement),
-            Confirmation::Skip | Confirmation::Refuse => Err(error),
-            other => {
-                log::warn!("Unexpected rescue confirmation: {:?}", other);
-                Err(error)
-            }
-        }
-    }
 }
 
 impl Drop for Text {
@@ -294,11 +169,13 @@ impl Reporter for Text {
 
 impl Communication for Text {
     fn confirm(&self, replacement: &Replacement) -> Confirmation {
-        self.state
-            .borrow_mut()
-            .set_current_confirm(replacement.clone(), &self.matchers);
-
-        Text::confirm(self, replacement)
+        let mut state = self.state.borrow_mut();
+        state.set_current_confirm(replacement.clone(), &self.matchers);
+        Resolver {
+            ui: self,
+            state: &mut state,
+        }
+        .resolve()
     }
     fn rescue(&self, error: Error) -> processing::Result<Replacement> {
         match &error {
@@ -308,11 +185,25 @@ impl Communication for Text {
                     Err(_) => return Err(error),
                 };
 
-                self.state
-                    .borrow_mut()
-                    .set_current_rescue(replacement.clone());
-
-                Text::rescue(self, &replacement)
+                let mut state = self.state.borrow_mut();
+                state.set_current_rescue(replacement.clone());
+                let resolution = Resolver {
+                    ui: self,
+                    state: &mut state,
+                }
+                .resolve();
+                match resolution {
+                    Confirmation::Abort => Err(Error::Abort),
+                    Confirmation::Replace(replacement) => Ok(replacement),
+                    Confirmation::Skip | Confirmation::Refuse => Err(error),
+                    other => {
+                        log::warn!(
+                            "Unexpected rescue confirmation: {:?}",
+                            other
+                        );
+                        Err(error)
+                    }
+                }
             }
             _ => {
                 log::warn!("Unexpected rescue: {:?}", error);
@@ -322,17 +213,182 @@ impl Communication for Text {
     }
 }
 
-fn prompt_for(action: &Action) -> Option<&'static str> {
-    match action {
-        Action::Accept => Some("Yes, accept the rename and continue"),
-        Action::Always => Some("Always accept similar rename and continue"),
-        Action::Customize(_) => Some("Customize the rename"),
-        Action::ViewAlternatives => Some("View other possibilities"),
-        Action::Replace(_) => None,
-        Action::Skip => Some("Skip renaming this file"),
-        Action::Refuse => Some("Refuse the rename and continue"),
-        Action::Ignore => Some("Ignore all similar rename and continue"),
-        Action::Abort => Some("Quit now, refusing this rename"),
-        Action::Cancel => None,
+struct Resolver<'a> {
+    ui: &'a Text,
+    state: &'a mut State,
+}
+
+impl<'a> Resolver<'a> {
+    fn resolve(&mut self) -> Confirmation {
+        use dialoguer::FuzzySelect;
+
+        loop {
+            match self.state.current() {
+                Current::Confirm(change) | Current::Rescue(change) => {
+                    println!(
+                        "Proceed with {}?",
+                        ReplacementDisplay::from(&change.replacement)
+                    );
+
+                    let mut prompts = vec![];
+                    let mut actions = vec![];
+
+                    for action in self.state.actions().iter() {
+                        if let Some(prompt) = self.prompt_for(action) {
+                            prompts.push(prompt);
+                            actions.push(action.clone());
+                        }
+                    }
+
+                    let selection = FuzzySelect::with_theme(&self.ui.theme)
+                        .with_prompt("What do you want to do?")
+                        .items(&prompts)
+                        .interact()
+                        .unwrap();
+
+                    let action = &actions[selection];
+                    match action {
+                        Action::Accept
+                        | Action::Always
+                        | Action::Skip
+                        | Action::Refuse
+                        | Action::Ignore
+                        | Action::Abort => {
+                            self.state.set_current_resolving(
+                                action
+                                    .clone()
+                                    .try_into()
+                                    .expect("Action convert to confirmation"),
+                            );
+                        }
+                        Action::ViewAlternatives => {
+                            self.view_alternatives();
+                        }
+                        Action::Customize(rep) => {
+                            self.state.customize(rep.new_file_stem.clone());
+                            self.customize();
+                        }
+                        Action::Cancel | Action::Replace(_) => {
+                            log::error!("Unexpected action {:?}", action);
+                        }
+                    }
+                }
+                Current::Resolving(_, conf) => return conf.clone(),
+                _ => {}
+            };
+        }
+    }
+
+    fn view_alternatives(&mut self) {
+        use dialoguer::console::{pad_str, Alignment};
+        use dialoguer::FuzzySelect;
+
+        if let Current::Confirm(change) = self.state.current() {
+            let mut replacements = vec![];
+            let mut options = vec![];
+
+            for (name, rep) in &change.alternatives {
+                options.push(format!(
+                    "{}: {} => {}",
+                    pad_str(
+                        name.as_str(),
+                        self.ui.matcher_name_length,
+                        Alignment::Left,
+                        None
+                    ),
+                    rep.file_stem,
+                    rep.new_file_stem
+                ));
+                replacements.push(rep);
+            }
+
+            options.push(String::from("Abort"));
+
+            let selection = FuzzySelect::with_theme(&self.ui.theme)
+                .with_prompt("What do you want to do?")
+                .items(&options)
+                .interact()
+                .unwrap();
+
+            if let Some(replacement) = replacements.get(selection) {
+                let new_file_stem = replacement.new_file_stem.clone();
+                self.state.customize(new_file_stem);
+
+                self.confirm_customization();
+            }
+        }
+    }
+
+    fn customize(&mut self) {
+        use dialoguer::Input;
+
+        if let Some(replacement) = self.state.customized_replacement() {
+            let new_file_stem: String = Input::with_theme(&self.ui.theme)
+                .with_prompt("New file name?")
+                .with_initial_text(replacement.new_file_stem)
+                .interact_text()
+                .unwrap();
+
+            self.state.customize(new_file_stem);
+            self.confirm_customization();
+        }
+    }
+
+    fn confirm_customization(&mut self) {
+        use dialoguer::FuzzySelect;
+
+        if let Some(replacement) = self.state.customized_replacement() {
+            let options = [
+                "Yes",
+                "No",
+                "Customize",
+            ];
+
+            let selection = FuzzySelect::with_theme(&self.ui.theme)
+                .with_prompt(format!(
+                    "Proceed with {}?",
+                    ReplacementDisplay::from(&replacement)
+                ))
+                .items(&options)
+                .interact()
+                .unwrap();
+
+            match selection {
+                0 => {
+                    self.state
+                        .set_current_resolving(Confirmation::Replace(replacement));
+                }
+                1 => {
+                    self.state.cancel_customize();
+                }
+                2 => {
+                    self.customize();
+                }
+                wtf => {
+                    log::warn!("Unknown selection {:?}", wtf);
+                }
+            }
+        }
+    }
+
+    fn prompt_for(&self, action: &Action) -> Option<&'static str> {
+        match action {
+            Action::Accept => Some("Yes, accept the rename and continue"),
+            Action::Always => Some("Always accept similar rename and continue"),
+            Action::Customize(_) => Some("Customize the rename"),
+            Action::ViewAlternatives => Some("View other possibilities"),
+            Action::Replace(_) => None,
+            Action::Skip => Some("Skip renaming this file"),
+            Action::Refuse => {
+                if let Current::Confirm(_) = self.state.current() {
+                    Some("Refuse the rename and continue")
+                } else {
+                    None
+                }
+            }
+            Action::Ignore => Some("Ignore all similar rename and continue"),
+            Action::Abort => Some("Quit now, refusing this rename"),
+            Action::Cancel => None,
+        }
     }
 }

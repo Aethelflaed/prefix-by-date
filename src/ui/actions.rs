@@ -130,6 +130,7 @@ impl Actions {
         self.actions.iter().find(func).cloned()
     }
 
+    // XXX bad naming, should probably be removed in favor of exposing iter
     pub fn shortcuts_using<F, T>(&self, func: F) -> Vec<T>
     where
         F: Fn(&Action) -> Option<T>,

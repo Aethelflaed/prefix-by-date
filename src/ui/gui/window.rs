@@ -57,6 +57,8 @@ impl Window {
     fn send_confirmation(&mut self, conf: Confirmation) -> Command<Message> {
         use ProcessingState::Processing;
 
+        self.state.set_current_resolving(conf.clone());
+
         if !self.state.actions().contains(Action::from(&conf)) {
             return Command::none();
         }
@@ -224,6 +226,9 @@ impl Application for Window {
                     )),
                 ]
                 .into()
+            }
+            _ => {
+                text("Processing...").into()
             }
         };
 
@@ -422,6 +427,8 @@ fn action_button(action: Action) -> iced::widget::Button<'static, Message> {
         Action::Ignore => "Ignore",
         Action::Abort => "Quit",
         Action::Replace(_) => "Use",
+        Action::ViewAlternatives => "Alternatives",
+        Action::Cancel => "Cancel",
     };
 
     simple_button(label, Message::Action(action))
