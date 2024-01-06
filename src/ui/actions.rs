@@ -3,6 +3,8 @@ use crate::replacement::Replacement;
 
 use crate::ui::state::Current;
 
+use std::borrow::Borrow;
+
 #[derive(Debug, Clone)]
 pub enum Action {
     Accept,
@@ -15,12 +17,18 @@ pub enum Action {
     Customize(Replacement),
 }
 
-impl From<Confirmation> for Action {
-    fn from(conf: Confirmation) -> Self {
+impl PartialEq for Action {
+    fn eq(&self, other: &Action) -> bool {
+        std::mem::discriminant(self) == std::mem::discriminant(other)
+    }
+}
+
+impl From<&Confirmation> for Action {
+    fn from(conf: &Confirmation) -> Self {
         match conf {
             Confirmation::Accept => Action::Accept,
             Confirmation::Always => Action::Always,
-            Confirmation::Replace(rep) => Action::Replace(rep),
+            Confirmation::Replace(rep) => Action::Replace(rep.clone()),
             Confirmation::Skip => Action::Skip,
             Confirmation::Refuse => Action::Refuse,
             Confirmation::Ignore => Action::Ignore,
@@ -54,27 +62,33 @@ pub struct Actions {
 impl From<&Current> for Actions {
     fn from(current: &Current) -> Self {
         match current {
-            Current::Confirm(change) => Self {
-                actions: vec![
-                    Action::Accept,
-                    Action::Always,
+            Current::Confirm(change) => {
+                let mut actions = vec![Action::Accept, Action::Always];
+                if change.is_further_customizable() {
+                    actions.push(Action::Customize(change.replacement.clone()));
+                }
+                actions.extend_from_slice(&vec![
                     Action::Replace(change.replacement.clone()),
-                    Action::Customize(change.replacement.clone()),
                     Action::Skip,
                     Action::Refuse,
                     Action::Ignore,
                     Action::Abort,
-                ],
-            },
-            Current::Rescue(change) => Self {
-                actions: vec![
+                ]);
+                Self { actions }
+            }
+            Current::Rescue(change) => {
+                let mut actions = vec![];
+                if change.is_further_customizable() {
+                    actions.push(Action::Customize(change.replacement.clone()));
+                }
+                actions.extend_from_slice(&vec![
                     Action::Replace(change.replacement.clone()),
-                    Action::Customize(change.replacement.clone()),
                     Action::Skip,
                     Action::Refuse,
                     Action::Abort,
-                ],
-            },
+                ]);
+                Self { actions }
+            }
             _ => Actions::empty(),
         }
     }
@@ -82,7 +96,7 @@ impl From<&Current> for Actions {
 
 impl Actions {
     pub fn empty() -> Self {
-        Self { actions: vec![] }
+        Self::default()
     }
 
     pub fn all() -> Self {
@@ -91,6 +105,7 @@ impl Actions {
                 Action::Accept,
                 Action::Always,
                 Action::Customize(Replacement::default()),
+                Action::Replace(Replacement::default()),
                 Action::Skip,
                 Action::Refuse,
                 Action::Ignore,
@@ -113,11 +128,15 @@ impl Actions {
         self.actions.iter().filter_map(func).collect()
     }
 
-    pub fn contains(&self, needle: Action) -> bool {
-        self.find(|action| {
-            std::mem::discriminant(*action) == std::mem::discriminant(&needle)
-        })
-        .is_some()
+    pub fn contains<A>(&self, needle: A) -> bool
+    where
+        A: Borrow<Action>,
+    {
+        self.actions.contains(needle.borrow())
+    }
+
+    pub fn iter(&self) -> std::slice::Iter<'_, Action> {
+        self.actions.iter()
     }
 }
 
@@ -132,5 +151,192 @@ pub fn shortcut_for(action: &Action) -> Option<char> {
         Action::Ignore => Some('I'),
         Action::Abort => Some('Q'),
         Action::Replace(_) => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pretty_assertions::assert_eq;
+
+    #[test]
+    fn actions_from_current_none() {
+        let current = Current::None;
+        assert!(Actions::from(&current).actions.is_empty());
+    }
+
+    #[test]
+    fn actions_from_current_path() {
+        use std::path::PathBuf;
+
+        let current = Current::Path(PathBuf::from("hello"));
+        assert!(Actions::from(&current).actions.is_empty());
+    }
+
+    #[test]
+    fn actions_from_current_confirm() {
+        use crate::ui::state::Change;
+
+        let change = Change::default();
+        let current = Current::Confirm(change);
+        let actions = Actions::from(&current);
+
+        assert!(actions.contains(Action::Customize(Replacement::default())));
+
+        assert_eq!(actions.actions[0], Action::Accept);
+        assert_eq!(actions.actions[1], Action::Always);
+        assert_eq!(
+            actions.actions[2],
+            Action::Customize(Replacement::default())
+        );
+        assert_eq!(actions.actions[3], Action::Replace(Replacement::default()));
+        assert_eq!(actions.actions[4], Action::Skip);
+        assert_eq!(actions.actions[5], Action::Refuse);
+        assert_eq!(actions.actions[6], Action::Ignore);
+        assert_eq!(actions.actions[7], Action::Abort);
+    }
+
+    #[test]
+    fn actions_from_current_confirm_customized() {
+        use crate::ui::state::Change;
+
+        let change = Change {
+            customize: Some(String::from("foo")),
+            ..Change::default()
+        };
+        let current = Current::Confirm(change);
+        let actions = Actions::from(&current);
+
+        assert!(!actions.contains(Action::Customize(Replacement::default())));
+
+        assert_eq!(actions.actions[0], Action::Accept);
+        assert_eq!(actions.actions[1], Action::Always);
+        assert_eq!(actions.actions[2], Action::Replace(Replacement::default()));
+        assert_eq!(actions.actions[3], Action::Skip);
+        assert_eq!(actions.actions[4], Action::Refuse);
+        assert_eq!(actions.actions[5], Action::Ignore);
+        assert_eq!(actions.actions[6], Action::Abort);
+    }
+
+    #[test]
+    fn actions_from_current_rescue() {
+        use crate::ui::state::Change;
+
+        let change = Change::default();
+        let current = Current::Rescue(change);
+        let actions = Actions::from(&current);
+
+        assert!(actions.contains(Action::Customize(Replacement::default())));
+
+        assert_eq!(
+            actions.actions[0],
+            Action::Customize(Replacement::default())
+        );
+        assert_eq!(actions.actions[1], Action::Replace(Replacement::default()));
+        assert_eq!(actions.actions[2], Action::Skip);
+        assert_eq!(actions.actions[3], Action::Refuse);
+        assert_eq!(actions.actions[4], Action::Abort);
+    }
+
+    #[test]
+    fn actions_from_current_rescue_customized() {
+        use crate::ui::state::Change;
+
+        let change = Change {
+            customize: Some(String::from("foo")),
+            ..Change::default()
+        };
+        let current = Current::Rescue(change);
+        let actions = Actions::from(&current);
+
+        assert!(!actions.contains(Action::Customize(Replacement::default())));
+
+        assert_eq!(
+            &actions.actions[0],
+            &Action::Replace(Replacement::default())
+        );
+        assert_eq!(actions.actions[1], Action::Skip);
+        assert_eq!(actions.actions[2], Action::Refuse);
+        assert_eq!(actions.actions[3], Action::Abort);
+    }
+
+    #[test]
+    fn all() {
+        let actions = Actions::all();
+
+        assert_eq!(actions.actions[0], Action::Accept);
+        assert_eq!(actions.actions[1], Action::Always);
+        assert_eq!(
+            actions.actions[2],
+            Action::Customize(Replacement::default())
+        );
+        assert_eq!(actions.actions[3], Action::Replace(Replacement::default()));
+        assert_eq!(actions.actions[4], Action::Skip);
+        assert_eq!(actions.actions[5], Action::Refuse);
+        assert_eq!(actions.actions[6], Action::Ignore);
+        assert_eq!(actions.actions[7], Action::Abort);
+    }
+
+    #[test]
+    fn shortcuts_using() {
+        let actions = Actions::all();
+
+        assert_eq!(
+            actions.shortcuts_using(shortcut_for),
+            vec!['Y', 'A', 'C', 'S', 'R', 'I', 'Q',]
+        );
+
+        let func = |action: &Action| match shortcut_for(action) {
+            Some(c) => Some(c),
+            None => Some('?'),
+        };
+
+        assert_eq!(
+            actions.shortcuts_using(func),
+            vec!['Y', 'A', 'C', '?', 'S', 'R', 'I', 'Q',]
+        );
+    }
+
+    #[test]
+    fn from_confirmation() {
+        assert_eq!(Action::Accept, Action::from(&Confirmation::Accept));
+        assert_eq!(Action::Always, Action::from(&Confirmation::Always));
+        assert_eq!(
+            Action::Replace(Replacement::default()),
+            Action::from(&Confirmation::Replace(Replacement::default()))
+        );
+        assert_eq!(Action::Skip, Action::from(&Confirmation::Skip));
+        assert_eq!(Action::Refuse, Action::from(&Confirmation::Refuse));
+        assert_eq!(Action::Ignore, Action::from(&Confirmation::Ignore));
+        assert_eq!(Action::Abort, Action::from(&Confirmation::Abort));
+    }
+
+    #[test]
+    fn try_into_confirmation() {
+        assert_eq!(Confirmation::Accept, Action::Accept.try_into().unwrap());
+        assert_eq!(Confirmation::Always, Action::Always.try_into().unwrap());
+        assert_eq!(
+            Confirmation::Replace(Replacement::default()),
+            Action::Replace(Replacement::default()).try_into().unwrap()
+        );
+        assert_eq!(Confirmation::Skip, Action::Skip.try_into().unwrap());
+        assert_eq!(Confirmation::Refuse, Action::Refuse.try_into().unwrap());
+        assert_eq!(Confirmation::Ignore, Action::Ignore.try_into().unwrap());
+        assert_eq!(Confirmation::Abort, Action::Abort.try_into().unwrap());
+        assert_eq!(
+            Err(()),
+            TryInto::<Confirmation>::try_into(Action::Customize(
+                Replacement::default()
+            ))
+        );
+    }
+
+    #[test]
+    fn find() {
+        let actions = Actions::all();
+
+        assert_eq!(Some(Action::Abort), actions.find(|act| {
+            shortcut_for(act) == Some('Q')
+        }));
     }
 }

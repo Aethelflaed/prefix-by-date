@@ -44,7 +44,7 @@ impl Window {
     fn execute(&mut self, action: Action) -> Command<Message> {
         match action {
             Action::Customize(rep) => {
-                self.state.current.customize(rep.new_file_stem.clone());
+                self.state.customize(rep.new_file_stem.clone());
 
                 iced::widget::focus_next()
             }
@@ -57,7 +57,7 @@ impl Window {
     fn send_confirmation(&mut self, conf: Confirmation) -> Command<Message> {
         use ProcessingState::Processing;
 
-        if !self.state.actions.contains(conf.clone().into()) {
+        if !self.state.actions().contains(Action::from(&conf)) {
             return Command::none();
         }
 
@@ -153,12 +153,12 @@ impl Application for Window {
                 Command::none()
             }
             Message::CustomizeInput(string) => {
-                self.state.current.customize(string);
+                self.state.customize(string);
 
                 Command::none()
             }
             Message::CustomizeSubmit => {
-                if let Some(rep) = self.state.current.customized_replacement() {
+                if let Some(rep) = self.state.customized_replacement() {
                     self.send_confirmation(Confirmation::Replace(rep))
                 } else {
                     Command::none()
@@ -169,14 +169,13 @@ impl Application for Window {
             Message::MaybeShortcut(key_code) => {
                 let predicate = |action: &&Action| {
                     if let Some(code) = iced_shortcut_for(action) {
-                        std::mem::discriminant(&key_code)
-                            == std::mem::discriminant(&code)
+                        key_code == code
                     } else {
                         false
                     }
                 };
 
-                if let Some(action) = self.state.actions.find(predicate) {
+                if let Some(action) = self.state.actions().find(predicate) {
                     self.execute(action)
                 } else {
                     Command::none()
@@ -199,7 +198,7 @@ impl Application for Window {
         use iced::alignment::Alignment;
         use iced::widget::{column, container, progress_bar, row, text, Row};
 
-        let message: Element<_> = match &self.state.current {
+        let message: Element<_> = match &self.state.current() {
             Current::None => text("Booting").into(),
             Current::Path(path) => {
                 text(format!("Processing {}", path.display())).into()
@@ -228,48 +227,17 @@ impl Application for Window {
             }
         };
 
-        let mut buttons = Row::with_children(match &self.state.current {
-            Current::None | Current::Path(_) => vec![],
-            Current::Confirm(change) => {
-                let mut buttons = vec![
-                    action_button("Yes", Action::Accept).into(),
-                    action_button("Always", Action::Always).into(),
-                ];
-
-                if change.show_customize_button() {
-                    buttons.push(
-                        action_button(
-                            "Custom",
-                            Action::Customize(change.replacement.clone()),
-                        )
-                        .into(),
-                    );
-                }
-
-                buttons.push(action_button("Skip", Action::Skip).into());
-                buttons.push(action_button("Refuse", Action::Refuse).into());
-                buttons.push(action_button("Ignore", Action::Ignore).into());
-                buttons.push(action_button("Quit", Action::Abort).into());
-                buttons
-            }
-            Current::Rescue(change) => {
-                let mut buttons = vec![];
-
-                if change.show_customize_button() {
-                    buttons.push(
-                        action_button(
-                            "Custom",
-                            Action::Customize(change.replacement.clone()),
-                        )
-                        .into(),
-                    );
-                }
-
-                buttons.push(action_button("Skip", Action::Skip).into());
-                buttons.push(action_button("Quit", Action::Abort).into());
-                buttons
-            }
-        })
+        let mut buttons = Row::with_children(
+            self.state
+                .actions()
+                .iter()
+                .cloned()
+                .filter_map(|action| match action {
+                    Action::Replace(_) => None,
+                    _ => Some(action_button(action).into()),
+                })
+                .collect::<Vec<Element<_>>>(),
+        )
         .spacing(10);
 
         buttons = buttons.push(simple_button("Logs", Message::ToggleLog));
@@ -283,7 +251,7 @@ impl Application for Window {
             .padding(20)
             .spacing(10);
 
-        if let Current::Confirm(change) = &self.state.current {
+        if let Current::Confirm(change) = &self.state.current() {
             if !change.alternatives.is_empty() {
                 content = content.push(text("Or choose from an alternatives"));
                 content = content.push(
@@ -294,14 +262,12 @@ impl Application for Window {
                                 .values()
                                 .map(|rep| {
                                     row![
-                                        action_button(
-                                            "Use",
-                                            Action::Replace(rep.clone())
-                                        ),
-                                        action_button(
-                                            "Customize",
-                                            Action::Customize(rep.clone())
-                                        ),
+                                        action_button(Action::Replace(
+                                            rep.clone()
+                                        )),
+                                        action_button(Action::Customize(
+                                            rep.clone()
+                                        )),
                                         text(rep.new_file_name()),
                                     ]
                                     .align_items(Alignment::Center)
@@ -317,7 +283,7 @@ impl Application for Window {
             }
         }
 
-        match &self.state.current {
+        match &self.state.current() {
             Current::Confirm(change) | Current::Rescue(change) => {
                 if let Some(string) = &change.customize {
                     content = content.push(customize(string));
@@ -327,12 +293,12 @@ impl Application for Window {
         }
 
         content = content.push(progress_bar(
-            0.0..=(self.state.len as f32),
-            self.state.index as f32,
+            0.0..=(self.state.len() as f32),
+            self.state.index() as f32,
         ));
 
         if self.log {
-            content = content.push(scrollable_logs(&self.state.logs));
+            content = content.push(scrollable_logs(self.state.logs()));
         }
 
         let mut content: Element<_> = content.into();
@@ -421,13 +387,6 @@ fn simple_button(
     .on_press(message)
 }
 
-fn action_button(
-    label: &str,
-    action: Action,
-) -> iced::widget::Button<'_, Message> {
-    simple_button(label, Message::Action(action))
-}
-
 fn customize(string: &str) -> Element<'_, Message> {
     use iced::widget::TextInput;
 
@@ -449,4 +408,19 @@ fn iced_shortcut_for(action: &Action) -> Option<KeyCode> {
         Action::Abort => Some(KeyCode::Q),
         Action::Customize(_) => Some(KeyCode::C),
     }
+}
+
+fn action_button(action: Action) -> iced::widget::Button<'static, Message> {
+    let label = match action {
+        Action::Accept => "Yes",
+        Action::Always => "Always",
+        Action::Customize(_) => "Custom",
+        Action::Skip => "Skip",
+        Action::Refuse => "Refuse",
+        Action::Ignore => "Ignore",
+        Action::Abort => "Quit",
+        Action::Replace(_) => "Use",
+    };
+
+    simple_button(label, Message::Action(action))
 }

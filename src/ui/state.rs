@@ -7,11 +7,15 @@ use std::path::PathBuf;
 
 #[derive(Default)]
 pub struct State {
-    pub index: usize,
-    pub len: usize,
-    pub current: Current,
-    pub actions: Actions,
-    pub logs: Vec<ProcessingResult>,
+    /// Currently processing item index
+    index: usize,
+    /// Total number of items to process
+    len: usize,
+    /// What is currently being processed
+    current: Current,
+    /// Relevant actions for the current item
+    actions: Actions,
+    logs: Vec<ProcessingResult>,
 }
 
 impl State {
@@ -31,11 +35,29 @@ impl State {
         replacement: Replacement,
         matchers: &[Box<dyn Matcher>],
     ) {
-        self.current = Current::new_confirm(replacement, matchers);
+        let mut change = Change::new(replacement.clone());
+        let path_buf = replacement.path();
+        let path = path_buf.as_path();
+
+        change.alternatives = matchers
+            .iter()
+            .filter_map(|matcher| {
+                matcher.check(path).and_then(|rep| {
+                    // Skip alternatives similar to the replacement
+                    if rep.new_file_stem == replacement.new_file_stem {
+                        None
+                    } else {
+                        Some((matcher.name().to_string(), rep))
+                    }
+                })
+            })
+            .collect();
+        self.current = Current::Confirm(change);
         self.actions = Actions::from(&self.current);
     }
     pub fn set_current_rescue(&mut self, replacement: Replacement) {
-        self.current = Current::new_rescue(replacement);
+        let change = Change::new(replacement);
+        self.current = Current::Rescue(change);
         self.actions = Actions::from(&self.current);
     }
 
@@ -46,6 +68,51 @@ impl State {
     pub fn failure(&mut self, path: PathBuf, error: String) {
         self.index += 1;
         self.logs.push(ProcessingResult::Failure(path, error));
+    }
+
+    pub fn customize(&mut self, string: String) {
+        match &mut self.current {
+            Current::Confirm(change) | Current::Rescue(change) => {
+                change.customize = Some(string)
+            }
+            _ => {}
+        };
+        self.actions = Actions::from(&self.current);
+    }
+
+    pub fn customized_replacement(&self) -> Option<Replacement> {
+        match &self.current {
+            Current::Confirm(change) | Current::Rescue(change) => {
+                if let Some(value) = change.customize.clone() {
+                    return Some(
+                        change.replacement.clone().new_file_stem(value),
+                    );
+                }
+            }
+            _ => {}
+        }
+
+        None
+    }
+
+    pub fn index(&self) -> usize {
+        self.index
+    }
+
+    pub fn len(&self) -> usize {
+        self.len
+    }
+
+    pub fn current(&self) -> &Current {
+        &self.current
+    }
+
+    pub fn actions(&self) -> &Actions {
+        &self.actions
+    }
+
+    pub fn logs(&self) -> &[ProcessingResult] {
+        &self.logs
     }
 }
 
@@ -59,43 +126,7 @@ pub enum Current {
     Rescue(Change),
 }
 
-impl Current {
-    pub fn new_confirm(
-        replacement: Replacement,
-        matchers: &[Box<dyn Matcher>],
-    ) -> Self {
-        Self::Confirm(Change::new_confirm(replacement, matchers))
-    }
-
-    pub fn new_rescue(replacement: Replacement) -> Self {
-        Self::Rescue(Change::new_rescue(replacement))
-    }
-
-    pub fn customize(&mut self, string: String) {
-        match self {
-            Current::Confirm(change) | Current::Rescue(change) => {
-                change.customize = Some(string)
-            }
-            _ => {}
-        };
-    }
-
-    pub fn customized_replacement(&self) -> Option<Replacement> {
-        match &self {
-            Current::Confirm(change) | Current::Rescue(change) => {
-                if let Some(value) = change.customize.clone() {
-                    return Some(
-                        change.replacement.clone().new_file_stem(value),
-                    );
-                }
-            }
-            _ => {}
-        }
-
-        None
-    }
-}
-
+#[derive(Default)]
 pub struct Change {
     pub replacement: Replacement,
     pub alternatives: HashMap<String, Replacement>,
@@ -103,42 +134,19 @@ pub struct Change {
 }
 
 impl Change {
-    pub fn show_customize_button(&self) -> bool {
+    pub fn new(replacement: Replacement) -> Self {
+        Self {
+            replacement,
+            ..Default::default()
+        }
+    }
+
+    /// Check if we can start customizing the change
+    ///
+    /// The change can be customized if it hasn't been customized yet (in which
+    /// case, you can just edit it), or if there are alternatives.
+    pub fn is_further_customizable(&self) -> bool {
         self.customize.is_none() || !self.alternatives.is_empty()
-    }
-
-    pub fn new_confirm(
-        replacement: Replacement,
-        matchers: &[Box<dyn Matcher>],
-    ) -> Self {
-        let path_buf = replacement.path();
-        let path = path_buf.as_path();
-
-        Self {
-            alternatives: matchers
-                .iter()
-                .filter_map(|matcher| {
-                    matcher.check(path).and_then(|rep| {
-                        // Skip alternatives similar to the replacement
-                        if rep.new_file_stem == replacement.new_file_stem {
-                            None
-                        } else {
-                            Some((matcher.name().to_string(), rep))
-                        }
-                    })
-                })
-                .collect(),
-            replacement,
-            customize: None,
-        }
-    }
-
-    pub fn new_rescue(replacement: Replacement) -> Self {
-        Self {
-            replacement,
-            alternatives: Default::default(),
-            customize: None,
-        }
     }
 }
 
@@ -155,4 +163,9 @@ impl std::fmt::Display for ProcessingResult {
             Self::Failure(_path, error) => write!(f, "{}", error),
         }
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
 }

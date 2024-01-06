@@ -54,6 +54,12 @@ pub enum Confirmation {
     Replace(Replacement),
 }
 
+impl PartialEq for Confirmation {
+    fn eq(&self, other: &Confirmation) -> bool {
+        std::mem::discriminant(self) == std::mem::discriminant(other)
+    }
+}
+
 impl<'a, T> Processing<'a, T>
 where
     T: Communication,
