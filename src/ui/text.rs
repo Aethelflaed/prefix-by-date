@@ -156,13 +156,13 @@ impl Reporter for Text {
         self.state.borrow_mut().set_current_path(path.to_path_buf());
     }
     fn processing_ok(&self, replacement: &Replacement) {
-        self.state.borrow_mut().success(replacement.clone());
+        self.state.borrow_mut().set_current_success(replacement.clone());
         self.inc_progress();
     }
     fn processing_err(&self, path: &Path, error: &Error) {
         self.state
             .borrow_mut()
-            .failure(path.to_path_buf(), format!("{}", error));
+            .set_current_failure(path.to_path_buf(), format!("{}", error));
         self.inc_progress();
     }
 }

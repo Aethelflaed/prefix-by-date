@@ -27,15 +27,29 @@ impl State {
         }
     }
 
+    /// Transition current to Path
+    ///
+    /// Only possible from None (default state at the beginning) and Resolved
     pub fn set_current_path(&mut self, path: PathBuf) {
-        self.current = Current::Path(path);
-        self.actions = Action::determine_for(&self.current);
+        if matches!(self.current, Current::None | Current::Resolved) {
+            self.current = Current::Path(path);
+            self.actions = Action::determine_for(&self.current);
+        }
     }
+
+    /// Transition current from Path or Resolving to Confirm
+    ///
+    /// The confirmation that transition to Resolving might not necessarily
+    /// resolve the issue (e.g. Confirmation::Refuse)
     pub fn set_current_confirm(
         &mut self,
         replacement: Replacement,
         matchers: &[Box<dyn Matcher>],
     ) {
+        if !matches!(self.current, Current::Path(_) | Current::Resolving(_, _)) {
+            return;
+        }
+
         let mut change = Change::new(replacement.clone());
         let path_buf = replacement.path();
         let path = path_buf.as_path();
@@ -56,40 +70,86 @@ impl State {
         self.current = Current::Confirm(change);
         self.actions = Action::determine_for(&self.current);
     }
+
+    /// Transition current from Path to Rescue
     pub fn set_current_rescue(&mut self, replacement: Replacement) {
+        if !matches!(self.current, Current::Path(_)) {
+            return;
+        }
+
         let change = Change::new(replacement);
         self.current = Current::Rescue(change);
         self.actions = Action::determine_for(&self.current);
     }
-    pub fn set_current_resolving(&mut self, conf: Confirmation) {
-        self.current.resolving(conf);
-        self.actions = Action::determine_for(&self.current);
+
+    /// Transition current from Confirm or Rescue to Resolving using the given
+    /// confirmation, if that is allowed by the actions
+    ///
+    /// Returns true on transition, false otherwise
+    pub fn set_current_resolving(&mut self, conf: Confirmation) -> bool {
+        if matches!(self.current, Current::Confirm(_) | Current::Rescue(_)) {
+            if self.actions.contains(&Action::from(&conf)) {
+                self.current.resolving(conf.clone());
+                self.actions = Action::determine_for(&self.current);
+
+                return true;
+            }
+        }
+
+        false
     }
 
-    pub fn success(&mut self, replacement: Replacement) {
+    /// Transition from Resolving to Resolved, incrementing the progress
+    /// tracker and logging the successful result
+    pub fn set_current_success(&mut self, replacement: Replacement) {
         self.index += 1;
         self.logs.push(ProcessingResult::Success(replacement));
         self.current = Current::Resolved;
         self.actions = Action::determine_for(&self.current);
     }
-    pub fn failure(&mut self, path: PathBuf, error: String) {
+    /// Transition from Resolving to Resolved, incrementing the progress
+    /// tracker and logging the failed result
+    pub fn set_current_failure(&mut self, path: PathBuf, error: String) {
         self.index += 1;
         self.logs.push(ProcessingResult::Failure(path, error));
         self.current = Current::Resolved;
         self.actions = Action::determine_for(&self.current);
     }
 
+    /// Update the customize field of the current change, as returned by
+    /// change()
+    ///
+    /// This also refresh the actions
     pub fn customize(&mut self, string: String) {
         self.change_mut()
             .map(|change| change.customize = Some(string));
         self.actions = Action::determine_for(&self.current);
     }
 
+    /// Cancel current customization, i.e. sets the customize field of the
+    /// current change back to None
+    ///
+    /// This also refresh the actions
     pub fn cancel_customize(&mut self) {
         self.change_mut().map(|change| change.customize = None);
         self.actions = Action::determine_for(&self.current);
     }
 
+    /// Get a Replacement from the customize field of the current change
+    ///
+    /// Returns None if there is no customization or if change() returns None
+    pub fn customized_replacement(&self) -> Option<Replacement> {
+        self.change().and_then(|change| {
+            if let Some(value) = change.customize.clone() {
+                Some(change.replacement.clone().new_file_stem(value))
+            } else {
+                None
+            }
+        })
+    }
+
+
+    /// Access the current change being considered for a Confirm or a Rescue
     pub fn change(&self) -> Option<&Change> {
         match &self.current {
             Current::Confirm(change) | Current::Rescue(change) => Some(change),
@@ -103,32 +163,27 @@ impl State {
         }
     }
 
-    pub fn customized_replacement(&self) -> Option<Replacement> {
-        self.change().and_then(|change| {
-            if let Some(value) = change.customize.clone() {
-                Some(change.replacement.clone().new_file_stem(value))
-            } else {
-                None
-            }
-        })
-    }
-
+    /// Index of the current path being processed
     pub fn index(&self) -> usize {
         self.index
     }
 
+    /// Number of paths to process
     pub fn len(&self) -> usize {
         self.len
     }
 
+    /// State of the currently being processed path
     pub fn current(&self) -> &Current {
         &self.current
     }
 
+    /// Actions that can be done at this time
     pub fn actions(&self) -> &[Action] {
         &self.actions
     }
 
+    /// List of the processing results
     pub fn logs(&self) -> &[ProcessingResult] {
         &self.logs
     }
@@ -137,12 +192,28 @@ impl State {
 /// Element currently being processed
 #[derive(Debug, Clone, Default)]
 pub enum Current {
+    /// Default state on initialization
     #[default]
     None,
+    /// The path is going to be processed
+    ///
+    /// From None and Resolved
     Path(PathBuf),
+    /// There's a match for the path that we need to confirm
+    ///
+    /// From Path and Resolving
     Confirm(Change),
+    /// There were no match for the path, but we can rescue from there
+    ///
+    /// From Path
     Rescue(Change),
+    /// A decision has been taken (Confirmation).
+    ///
+    /// From Confirm and Rescue
     Resolving(Change, Confirmation),
+    /// The path has been processed
+    ///
+    /// From Resolving
     Resolved,
 }
 
@@ -153,6 +224,8 @@ impl PartialEq for Current {
 }
 
 impl Current {
+    /// Change self to Resolving from a Confirm or Rescue by re-using the
+    /// same Change
     fn resolving(&mut self, conf: Confirmation) {
         use Current::*;
 
