@@ -57,11 +57,11 @@ impl Window {
     fn send_confirmation(&mut self, conf: Confirmation) -> Command<Message> {
         use ProcessingState::Processing;
 
-        self.state.set_current_resolving(conf.clone());
-
         if !self.state.actions().contains(&Action::from(&conf)) {
             return Command::none();
         }
+
+        self.state.set_current_resolving(conf.clone());
 
         if let Processing(connection) = &mut self.processing_state {
             let mut connection = connection.clone();
