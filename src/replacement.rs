@@ -23,13 +23,14 @@ impl TryFrom<&Path> for Replacement {
             .ok_or(Error::PathUnwrap(path.into(), "file_stem"))?
             .to_str()
             .ok_or(Error::PathUnwrap(path.into(), "file_stem/to_str"))?
-            .into();
-        let ext: String = path
-            .extension()
-            .ok_or(Error::PathUnwrap(path.into(), "extension"))?
-            .to_str()
-            .ok_or(Error::PathUnwrap(path.into(), "extension/to_str"))?
-            .into();
+            .to_string();
+        let ext: String = match path.extension() {
+            Some(os_str) => os_str
+                .to_str()
+                .ok_or(Error::PathUnwrap(path.into(), "extension/to_str"))?
+                .to_string(),
+            None => "".to_string(),
+        };
 
         // Try to resolve the path, but rescue silently if it doesn't work
         let parent = parent.canonicalize().unwrap_or(parent.to_path_buf());
@@ -51,11 +52,19 @@ impl Replacement {
     }
 
     pub fn file_name(&self) -> String {
-        format!("{}.{}", self.file_stem, self.extension)
+        if self.extension.is_empty() {
+            self.file_stem.clone()
+        } else {
+            format!("{}.{}", self.file_stem, self.extension)
+        }
     }
 
     pub fn new_file_name(&self) -> String {
-        format!("{}.{}", self.new_file_stem, self.extension)
+        if self.extension.is_empty() {
+            self.new_file_stem.clone()
+        } else {
+            format!("{}.{}", self.new_file_stem, self.extension)
+        }
     }
 
     pub fn path(&self) -> PathBuf {
@@ -74,14 +83,24 @@ impl Replacement {
 
 impl fmt::Display for Replacement {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "{}/{{{} => {}}}.{}",
-            self.parent.to_str().unwrap(),
-            self.file_stem,
-            self.new_file_stem,
-            self.extension
-        )
+        if self.extension.is_empty() {
+            write!(
+                f,
+                "{}/{{{} => {}}}",
+                self.parent.to_str().unwrap(),
+                self.file_stem,
+                self.new_file_stem
+            )
+        } else {
+            write!(
+                f,
+                "{}/{{{} => {}}}.{}",
+                self.parent.to_str().unwrap(),
+                self.file_stem,
+                self.new_file_stem,
+                self.extension
+            )
+        }
     }
 }
 
@@ -99,7 +118,18 @@ mod tests {
         let replacement = Replacement::try_from(path().as_path()).unwrap();
 
         assert_eq!(String::from("test"), replacement.file_stem);
+        assert_eq!(String::from("test.pdf"), replacement.file_name());
         assert_eq!(path(), replacement.new_path());
+    }
+
+    #[test]
+    fn try_from_without_extension() {
+        let path = PathBuf::from("/this/is/a/test");
+        let replacement = Replacement::try_from(path.as_path()).unwrap();
+
+        assert_eq!(String::from("test"), replacement.file_stem);
+        assert_eq!(String::from("test"), replacement.file_name());
+        assert_eq!(path, replacement.new_path());
     }
 
     #[test]
