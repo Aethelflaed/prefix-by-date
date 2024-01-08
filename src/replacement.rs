@@ -74,11 +74,6 @@ impl Replacement {
     pub fn new_path(&self) -> PathBuf {
         self.parent.join(self.new_file_name())
     }
-
-    pub fn new_file_stem(mut self, value: String) -> Self {
-        self.new_file_stem = value;
-        self
-    }
 }
 
 impl fmt::Display for Replacement {

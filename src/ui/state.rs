@@ -88,13 +88,13 @@ impl State {
     ///
     /// Returns true on transition, false otherwise
     pub fn set_current_resolving(&mut self, conf: Confirmation) -> bool {
-        if matches!(self.current, Current::Confirm(_) | Current::Rescue(_)) {
-            if self.actions.contains(&Action::from(&conf)) {
-                self.current.resolving(conf.clone());
-                self.actions = Action::determine_for(&self.current);
+        if matches!(self.current, Current::Confirm(_) | Current::Rescue(_))
+            && self.actions.contains(&Action::from(&conf))
+        {
+            self.current.resolving(conf.clone());
+            self.actions = Action::determine_for(&self.current);
 
-                return true;
-            }
+            return true;
         }
 
         false
@@ -122,8 +122,9 @@ impl State {
     ///
     /// This also refresh the actions
     pub fn customize(&mut self, string: String) {
-        self.change_mut()
-            .map(|change| change.customize = Some(string));
+        if let Some(change) = self.change_mut() {
+            change.customize = Some(string);
+        }
         self.actions = Action::determine_for(&self.current);
     }
 
@@ -132,7 +133,9 @@ impl State {
     ///
     /// This also refresh the actions
     pub fn cancel_customize(&mut self) {
-        self.change_mut().map(|change| change.customize = None);
+        if let Some(change) = self.change_mut() {
+            change.customize = None;
+        }
         self.actions = Action::determine_for(&self.current);
     }
 
@@ -141,11 +144,11 @@ impl State {
     /// Returns None if there is no customization or if change() returns None
     pub fn customized_replacement(&self) -> Option<Replacement> {
         self.change().and_then(|change| {
-            if let Some(value) = change.customize.clone() {
-                Some(change.replacement.clone().new_file_stem(value))
-            } else {
-                None
-            }
+            change.customize.clone().map(|value| {
+                let mut replacement = change.replacement.clone();
+                replacement.new_file_stem = value;
+                replacement
+            })
         })
     }
 
