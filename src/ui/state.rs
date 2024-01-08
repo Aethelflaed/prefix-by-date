@@ -46,7 +46,8 @@ impl State {
         replacement: Replacement,
         matchers: &[Box<dyn Matcher>],
     ) {
-        if !matches!(self.current, Current::Path(_) | Current::Resolving(_, _)) {
+        if !matches!(self.current, Current::Path(_) | Current::Resolving(_, _))
+        {
             return;
         }
 
@@ -147,7 +148,6 @@ impl State {
             }
         })
     }
-
 
     /// Access the current change being considered for a Confirm or a Rescue
     pub fn change(&self) -> Option<&Change> {

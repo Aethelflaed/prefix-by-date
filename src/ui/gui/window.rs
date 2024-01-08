@@ -210,7 +210,7 @@ impl Application for Window {
 
                 column![
                     text(format!("In {}", rep.parent.display())).size(12),
-                    text(format!("Replace {:?} with:", rep.file_name(),)),
+                    text(format!("Replace {} with:", rep.file_name())),
                     text(rep.new_file_name()),
                 ]
                 .into()
@@ -220,10 +220,7 @@ impl Application for Window {
 
                 column![
                     text(format!("In {}", rep.parent.display())).size(12),
-                    text(format!(
-                        "No match was found for {:?}",
-                        rep.file_name()
-                    )),
+                    text(format!("No match was found for {}", rep.file_name())),
                 ]
                 .into()
             }

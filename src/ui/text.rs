@@ -156,7 +156,9 @@ impl Reporter for Text {
         self.state.borrow_mut().set_current_path(path.to_path_buf());
     }
     fn processing_ok(&self, replacement: &Replacement) {
-        self.state.borrow_mut().set_current_success(replacement.clone());
+        self.state
+            .borrow_mut()
+            .set_current_success(replacement.clone());
         self.inc_progress();
     }
     fn processing_err(&self, path: &Path, error: &Error) {
@@ -220,62 +222,77 @@ struct Resolver<'a> {
 
 impl<'a> Resolver<'a> {
     fn resolve(&mut self) -> Confirmation {
-        use dialoguer::FuzzySelect;
-
         loop {
             match self.state.current() {
-                Current::Confirm(change) | Current::Rescue(change) => {
+                Current::Confirm(change) => {
+                    let rep = &change.replacement;
+
+                    println!("In {}", rep.parent.display());
                     println!(
-                        "Proceed with {}?",
-                        ReplacementDisplay::from(&change.replacement)
+                        "Replace {} with {}",
+                        rep.file_name(),
+                        rep.new_file_name()
                     );
 
-                    let mut prompts = vec![];
-                    let mut actions = vec![];
+                    self.main_dialog();
+                }
+                Current::Rescue(change) => {
+                    let rep = &change.replacement;
 
-                    for action in self.state.actions().iter() {
-                        if let Some(prompt) = self.prompt_for(action) {
-                            prompts.push(prompt);
-                            actions.push(action.clone());
-                        }
-                    }
-
-                    let selection = FuzzySelect::with_theme(&self.ui.theme)
-                        .with_prompt("What do you want to do?")
-                        .items(&prompts)
-                        .interact()
-                        .unwrap();
-
-                    let action = &actions[selection];
-                    match action {
-                        Action::Accept
-                        | Action::Always
-                        | Action::Skip
-                        | Action::Refuse
-                        | Action::Ignore
-                        | Action::Abort => {
-                            self.state.set_current_resolving(
-                                action
-                                    .clone()
-                                    .try_into()
-                                    .expect("Action convert to confirmation"),
-                            );
-                        }
-                        Action::ViewAlternatives => {
-                            self.view_alternatives();
-                        }
-                        Action::Customize(rep) => {
-                            self.state.customize(rep.new_file_stem.clone());
-                            self.customize();
-                        }
-                        Action::Cancel | Action::Replace(_) => {
-                            log::error!("Unexpected action {:?}", action);
-                        }
-                    }
+                    println!("In {}", rep.parent.display());
+                    println!("No match was found for {}", rep.file_name());
+                    self.main_dialog();
                 }
                 Current::Resolving(_, conf) => return conf.clone(),
                 _ => {}
             };
+        }
+    }
+
+    fn main_dialog(&mut self) {
+        use dialoguer::FuzzySelect;
+
+        let mut prompts = vec![];
+        let mut actions = vec![];
+
+        for action in self.state.actions().iter() {
+            if let Some(prompt) = self.prompt_for(action) {
+                prompts.push(prompt);
+                actions.push(action.clone());
+            }
+        }
+
+        let selection = FuzzySelect::with_theme(&self.ui.theme)
+            .with_prompt("What do you want to do?")
+            .items(&prompts)
+            .interact()
+            .unwrap();
+
+        let action = &actions[selection];
+        match action {
+            Action::Accept
+            | Action::Always
+            | Action::Skip
+            | Action::Refuse
+            | Action::Ignore
+            | Action::Abort => {
+                self.state.set_current_resolving(
+                    action
+                        .clone()
+                        .try_into()
+                        .expect("Action convert to confirmation"),
+                );
+            }
+            Action::ViewAlternatives => {
+                self.view_alternatives();
+            }
+            Action::Customize(rep) => {
+                self.state.customize(rep.new_file_stem.clone());
+                self.customize();
+            }
+            Action::Cancel | Action::Replace(_) => {
+                log::error!("Unexpected action {:?}", action);
+            }
         }
     }
 
