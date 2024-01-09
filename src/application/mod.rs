@@ -50,17 +50,16 @@ impl Application {
 
     pub fn setup(&mut self) -> Result<()> {
         log::set_max_level(self.cli.verbose.log_level_filter());
+        log::debug!("{:?}", self.cli);
+
         let matchers = self.read_config()?;
 
         let mut format = "%Y-%m-%d";
-        if self.cli.time {
-            log::debug!("Prefix by date and time");
+        if let Some(true) = self.cli.time() {
             format = "%Y-%m-%d %Hh%Mm%S";
         }
 
         if self.cli.today {
-            log::debug!("Prefix by today's date");
-
             self.matchers
                 .push(Box::new(PredeterminedDate::new(format, self.cli.time)));
         }
@@ -70,11 +69,9 @@ impl Application {
         self.matchers
             .push(Box::new(Metadata::new_modified(format, self.cli.time)));
 
-
         matchers.iter().for_each(|(name, value)| {
             if let toml::Value::Table(table) = value {
-                if let Some(pattern) =
-                    Pattern::deserialize(name, table, format)
+                if let Some(pattern) = Pattern::deserialize(name, table, format)
                 {
                     self.add_matcher(Box::new(pattern));
                 }
@@ -111,7 +108,9 @@ impl Application {
         std::fs::read_to_string(file).map(|content| {
             let table = content.parse::<Table>().expect("Parse config as toml");
 
-            if let Some(table) = table.get("matchers").and_then(Value::as_table).cloned() {
+            if let Some(table) =
+                table.get("matchers").and_then(Value::as_table).cloned()
+            {
                 matchers = table;
             }
         })?;
@@ -163,18 +162,6 @@ mod tests {
     use assert_fs::{fixture::FileWriteStr, fixture::PathChild, TempDir};
     use pretty_assertions::assert_eq;
     use temp_env::with_var;
-
-    fn cli() -> Cli {
-        use crate::cli::Interactive;
-
-        Cli {
-            verbose: clap_verbosity_flag::Verbosity::new(0, 0),
-            today: false,
-            time: false,
-            interactive: Interactive::Off,
-            paths: vec![],
-        }
-    }
 
     fn with_config<T, R>(function: T) -> R
     where
@@ -236,13 +223,11 @@ regex = """
 
     #[test]
     fn today() {
-        let cli = Cli {
-            today: true,
-            ..cli()
-        };
-
         let mut app = Application {
-            cli,
+            cli: Cli {
+                today: true,
+                ..Cli::default()
+            },
             ..Application::default()
         };
         with_config(|| app.setup().unwrap());
@@ -258,17 +243,15 @@ regex = """
     #[test]
     fn time() {
         with_config(|| {
-            let mut app = Application {
-                cli: cli(),
-                ..Application::default()
-            };
+            let mut app = Application::default();
             app.setup().unwrap();
             assert_eq!("%Y-%m-%d", app.matchers[0].date_format());
 
             app = Application {
                 cli: Cli {
                     time: true,
-                    ..cli()
+                    no_time: true,
+                    ..Cli::default()
                 },
                 ..Application::default()
             };
@@ -292,10 +275,7 @@ regex = """
 
     #[test]
     fn read_config() {
-        let mut app = Application {
-            cli: cli(),
-            ..Application::default()
-        };
+        let mut app = Application::default();
         with_config(|| app.setup().unwrap());
 
         assert_eq!(4, app.matchers.len());
@@ -307,7 +287,8 @@ regex = """
         app = Application {
             cli: Cli {
                 time: true,
-                ..cli()
+                no_time: true,
+                ..Cli::default()
             },
             ..Application::default()
         };
