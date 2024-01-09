@@ -8,6 +8,9 @@ use dyn_clone::DynClone;
 pub mod pattern;
 pub use pattern::Pattern;
 
+pub mod metadata;
+pub use metadata::Metadata;
+
 /// Match a file to be renamed
 pub trait Matcher: DynClone + Send {
     /// Check if the given path should be replaced by the matcher and
@@ -75,7 +78,7 @@ impl Matcher for PredeterminedDate {
 impl PredeterminedDate {
     pub fn new(format: &str, time: bool) -> Self {
         Self {
-            format: format.into(),
+            format: format.to_string(),
             time,
             ..Self::default()
         }

@@ -132,7 +132,7 @@ impl Pattern {
         match date_time.resolve() {
             None => return None,
             Some(time) => {
-                elements.push(time.format(self.format.as_str()).to_string())
+                elements.push(time.format(self.date_format()).to_string())
             }
         }
 

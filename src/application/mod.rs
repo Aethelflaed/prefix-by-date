@@ -1,5 +1,5 @@
 use crate::cli::Cli;
-use crate::matcher::{Matcher, Pattern, PredeterminedDate};
+use crate::matcher::{Matcher, Metadata, Pattern, PredeterminedDate};
 use crate::ui;
 
 use std::boxed::Box;
@@ -63,6 +63,11 @@ impl Application {
             self.matchers
                 .push(Box::new(PredeterminedDate::new(format, self.cli.time)));
         }
+
+        self.matchers
+            .push(Box::new(Metadata::new_created(format, self.cli.time)));
+        self.matchers
+            .push(Box::new(Metadata::new_modified(format, self.cli.time)));
 
         self.read_config(format)?;
 
@@ -232,10 +237,12 @@ regex = """
         };
         with_config(|| app.setup().unwrap());
 
-        assert_eq!(3, app.matchers.len());
+        assert_eq!(5, app.matchers.len());
         assert_eq!("Predetermined date", app.matchers[0].name());
-        assert_eq!("whatsapp", app.matchers[1].name());
-        assert_eq!("cic", app.matchers[2].name());
+        assert_eq!("created", app.matchers[1].name());
+        assert_eq!("modified", app.matchers[2].name());
+        assert_eq!("whatsapp", app.matchers[3].name());
+        assert_eq!("cic", app.matchers[4].name());
     }
 
     #[test]
@@ -281,11 +288,11 @@ regex = """
         };
         with_config(|| app.setup().unwrap());
 
-        assert_eq!(2, app.matchers.len());
-        assert_eq!("whatsapp", app.matchers[0].name());
-        assert_eq!("%Y-%m-%d", app.matchers[0].date_format());
-        assert_eq!("cic", app.matchers[1].name());
-        assert_eq!("%Y-%m-%d", app.matchers[1].date_format());
+        assert_eq!(4, app.matchers.len());
+        assert_eq!("whatsapp", app.matchers[2].name());
+        assert_eq!("%Y-%m-%d", app.matchers[2].date_format());
+        assert_eq!("cic", app.matchers[3].name());
+        assert_eq!("%Y-%m-%d", app.matchers[3].date_format());
 
         app = Application {
             cli: Cli {
@@ -296,9 +303,11 @@ regex = """
         };
         with_config(|| app.setup().unwrap());
 
-        assert_eq!(1, app.matchers.len());
-        assert_eq!("whatsapp_time", app.matchers[0].name());
-        assert_eq!("%Y-%m-%d %Hh%Mm%S", app.matchers[0].date_format());
+        assert_eq!(3, app.matchers.len());
+        assert_eq!("created", app.matchers[0].name());
+        assert_eq!("modified", app.matchers[1].name());
+        assert_eq!("whatsapp_time", app.matchers[2].name());
+        assert_eq!("%Y-%m-%d %Hh%Mm%S", app.matchers[2].date_format());
     }
 
     #[test]

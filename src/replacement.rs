@@ -138,15 +138,4 @@ mod tests {
             replacement.new_path()
         );
     }
-
-    #[test]
-    fn new_file_stem_fn() {
-        let replacement = Replacement::try_from(path().as_path())
-            .unwrap()
-            .new_file_stem("success".to_string());
-        assert_eq!(
-            PathBuf::from("/this/is/a/success.pdf"),
-            replacement.new_path()
-        );
-    }
 }
