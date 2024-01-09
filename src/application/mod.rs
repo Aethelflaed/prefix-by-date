@@ -1,4 +1,3 @@
-use crate::cli::Cli;
 use crate::matcher::{Matcher, Metadata, Pattern, PredeterminedDate};
 use crate::ui;
 
@@ -6,6 +5,10 @@ use std::boxed::Box;
 use std::path::PathBuf;
 
 use toml::Table;
+
+mod cli;
+use cli::Cli;
+pub use cli::Interactive;
 
 mod error;
 pub use error::Error;

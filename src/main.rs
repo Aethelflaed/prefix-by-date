@@ -1,5 +1,4 @@
 mod application;
-mod cli;
 mod matcher;
 mod processing;
 mod replacement;
