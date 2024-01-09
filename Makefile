@@ -1,11 +1,11 @@
 export PREFIX_BY_DATE_LOG=error,prefix_by_date=debug
 
-install_debug: files/debug.desktop files/patterns.toml
+install_debug: files/debug.desktop files/config.toml
 	mkdir -p ~/.local/share/kio/servicemenus
 	cp files/debug.desktop ~/.local/share/kio/servicemenus/prefix-by-date.desktop
 	update-desktop-database ~/.local/share/kio/servicemenus
 	mkdir -p ~/.config/prefix-by-date
-	cp files/patterns.toml ~/.config/prefix-by-date/
+	cp files/config.toml ~/.config/prefix-by-date/
 
 clean_coverage:
 	rm -rf target/coverage

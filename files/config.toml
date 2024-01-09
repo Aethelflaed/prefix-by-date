@@ -1,4 +1,4 @@
-[cic]
+[matchers.cic]
 regex = """
   \\A
   (?<rest>.+)
@@ -9,7 +9,7 @@ regex = """
   \\z
 """
 
-[date_suffix]
+[matchers.date_suffix]
 regex = """
   \\A
   (?<start>.+)[\\ _-]
@@ -19,7 +19,7 @@ regex = """
   \\z
 """
 
-[date_infix]
+[matchers.date_infix]
 regex = """
   \\A
   (?<start>.+)[\\ _-]
@@ -30,7 +30,7 @@ regex = """
   \\z
 """
 
-[date_time_infix]
+[matchers.date_time_infix]
 regex = """
   \\A
   (?<start>.+)[\\ _-]
@@ -45,7 +45,7 @@ regex = """
 """
 time = true
 
-[date_time_suffix]
+[matchers.date_time_suffix]
 regex = """
   \\A
   (?<start>.+)[\\ _-]

@@ -50,6 +50,7 @@ impl Application {
 
     pub fn setup(&mut self) -> Result<()> {
         log::set_max_level(self.cli.verbose.log_level_filter());
+        let matchers = self.read_config()?;
 
         let mut format = "%Y-%m-%d";
         if self.cli.time {
@@ -69,7 +70,16 @@ impl Application {
         self.matchers
             .push(Box::new(Metadata::new_modified(format, self.cli.time)));
 
-        self.read_config(format)?;
+
+        matchers.iter().for_each(|(name, value)| {
+            if let toml::Value::Table(table) = value {
+                if let Some(pattern) =
+                    Pattern::deserialize(name, table, format)
+                {
+                    self.add_matcher(Box::new(pattern));
+                }
+            }
+        });
 
         Ok(())
     }
@@ -91,22 +101,22 @@ impl Application {
         }
     }
 
-    fn read_config(&mut self, default_format: &str) -> std::io::Result<()> {
-        let file = config_home().join("patterns.toml");
+    fn read_config(&mut self) -> std::io::Result<Table> {
+        use toml::Value;
+
+        let file = config_home().join("config.toml");
+
+        let mut matchers: Table = Default::default();
 
         std::fs::read_to_string(file).map(|content| {
-            content.parse::<Table>().unwrap().iter().for_each(
-                |(name, value)| {
-                    if let toml::Value::Table(table) = value {
-                        if let Some(pattern) =
-                            Pattern::deserialize(name, table, default_format)
-                        {
-                            self.add_matcher(Box::new(pattern));
-                        }
-                    }
-                },
-            );
-        })
+            let table = content.parse::<Table>().expect("Parse config as toml");
+
+            if let Some(table) = table.get("matchers").and_then(Value::as_table).cloned() {
+                matchers = table;
+            }
+        })?;
+
+        Ok(matchers)
     }
 
     fn setup_log(&mut self) -> LogResult {
@@ -175,10 +185,10 @@ mod tests {
             "PREFIX_BY_DATE_CONFIG",
             Some(temp.path().as_os_str()),
             || {
-                temp.child("patterns.toml")
+                temp.child("config.toml")
                     .write_str(
                         r#"
-[whatsapp_time]
+[matchers.whatsapp_time]
 regex = """
   [A-Z]+-
   (?<year>\\d{4})
@@ -192,7 +202,7 @@ regex = """
 """
 time = true
 
-[whatsapp]
+[matchers.whatsapp]
 regex = """
   [A-Z]+-
   (?<year>\\d{4})
@@ -202,7 +212,7 @@ regex = """
   (?<rest>.+)
 """
 
-[cic]
+[matchers.cic]
 regex = """
   (?<rest>.+)
   \\s+au\\s+
