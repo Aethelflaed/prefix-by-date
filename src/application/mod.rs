@@ -2,13 +2,12 @@ use crate::matcher::{Matcher, Metadata, Pattern, PredeterminedDate};
 use crate::ui;
 
 use std::boxed::Box;
-use std::path::PathBuf;
-
-use toml::Table;
 
 mod cli;
-use cli::Cli;
 pub use cli::Interactive;
+
+mod arguments;
+use arguments::Arguments;
 
 mod error;
 pub use error::Error;
@@ -18,8 +17,8 @@ type LogResult = std::result::Result<(), log::SetLoggerError>;
 
 pub struct Application {
     pub matchers: Vec<Box<dyn Matcher>>,
-    pub cli: Cli,
     ui: Box<dyn ui::Interface>,
+    arguments: Arguments,
 }
 
 impl Default for Application {
@@ -28,53 +27,49 @@ impl Default for Application {
 
         Self {
             matchers: Vec::<Box<dyn Matcher>>::default(),
-            cli: Cli::default(),
+            arguments: Arguments::default(),
             ui: Box::new(NonInteractive::new()),
         }
     }
 }
 
 impl Application {
-    pub fn new() -> Result<Self> {
-        use clap::Parser;
-
-        let cli = Cli::parse();
-
-        let mut app = Self {
-            ui: ui::from(cli.interactive),
-            cli,
+    pub fn new() -> Self {
+        Self {
+            arguments: Arguments::parse(),
             ..Self::default()
-        };
-
-        app.setup_log()?;
-
-        Ok(app)
+        }
     }
 
     pub fn setup(&mut self) -> Result<()> {
-        log::set_max_level(self.cli.verbose.log_level_filter());
-        log::debug!("{:?}", self.cli);
+        self.ui = ui::from(self.arguments.interactive());
 
-        let matchers = self.read_config()?;
+        self.setup_log()?;
+        log::set_max_level(self.arguments.log_level_filter());
+        log::debug!("Arguments: {:?}", self.arguments);
 
-        let mut format = "%Y-%m-%d";
-        if let Some(true) = self.cli.time() {
-            format = "%Y-%m-%d %Hh%Mm%S";
-        }
+        let time = self.arguments.time();
+        let format = self.arguments.default_format().to_string();
 
-        if self.cli.today {
+        if self.arguments.today() {
             self.matchers
-                .push(Box::new(PredeterminedDate::new(format, self.cli.time)));
+                .push(Box::new(PredeterminedDate::new(format.as_str(), time)));
         }
 
-        self.matchers
-            .push(Box::new(Metadata::new_created(format, self.cli.time)));
-        self.matchers
-            .push(Box::new(Metadata::new_modified(format, self.cli.time)));
+        if self.arguments.metadata().created() {
+            self.matchers
+                .push(Box::new(Metadata::new_created(format.as_str(), time)));
+        }
+        if self.arguments.metadata().modified() {
+            self.matchers
+                .push(Box::new(Metadata::new_modified(format.as_str(), time)));
+        }
 
-        matchers.iter().for_each(|(name, value)| {
+        let patterns = self.arguments.patterns().clone();
+        patterns.iter().for_each(|(name, value)| {
             if let toml::Value::Table(table) = value {
-                if let Some(pattern) = Pattern::deserialize(name, table, format)
+                if let Some(pattern) =
+                    Pattern::deserialize(name, table, format.as_str())
                 {
                     self.add_matcher(Box::new(pattern));
                 }
@@ -89,36 +84,16 @@ impl Application {
             "Matchers: {:?}",
             self.matchers.iter().map(|m| m.name()).collect::<Vec<_>>()
         );
-        log::debug!("Paths: {:?}", self.cli.paths);
-        self.ui.process(&self.matchers, &self.cli.paths)
+        log::debug!("Paths: {:?}", self.arguments.paths());
+        self.ui.process(&self.matchers, self.arguments.paths())
     }
 
     pub fn add_matcher(&mut self, matcher: Box<dyn Matcher>) {
-        if matcher.time() == self.cli.time
+        if matcher.time() == self.arguments.time()
             && !self.matchers.iter().any(|m| m.name() == matcher.name())
         {
             self.matchers.push(matcher);
         }
-    }
-
-    fn read_config(&mut self) -> std::io::Result<Table> {
-        use toml::Value;
-
-        let file = config_home().join("config.toml");
-
-        let mut matchers: Table = Default::default();
-
-        std::fs::read_to_string(file).map(|content| {
-            let table = content.parse::<Table>().expect("Parse config as toml");
-
-            if let Some(table) =
-                table.get("matchers").and_then(Value::as_table).cloned()
-            {
-                matchers = table;
-            }
-        })?;
-
-        Ok(matchers)
     }
 
     fn setup_log(&mut self) -> LogResult {
@@ -147,15 +122,6 @@ impl Application {
                     .parse_env(env),
             )
         }
-    }
-}
-
-fn config_home() -> PathBuf {
-    match std::env::var("PREFIX_BY_DATE_CONFIG") {
-        Ok(val) if !val.is_empty() => PathBuf::from(val),
-        _ => xdg::BaseDirectories::with_prefix(env!("CARGO_PKG_NAME"))
-            .unwrap()
-            .get_config_home(),
     }
 }
 
@@ -222,86 +188,6 @@ regex = """
         temp.close().unwrap();
 
         return result;
-    }
-
-    #[test]
-    fn today() {
-        let mut app = Application {
-            cli: Cli {
-                today: true,
-                ..Cli::default()
-            },
-            ..Application::default()
-        };
-        with_config(|| app.setup().unwrap());
-
-        assert_eq!(5, app.matchers.len());
-        assert_eq!("Predetermined date", app.matchers[0].name());
-        assert_eq!("created", app.matchers[1].name());
-        assert_eq!("modified", app.matchers[2].name());
-        assert_eq!("whatsapp", app.matchers[3].name());
-        assert_eq!("cic", app.matchers[4].name());
-    }
-
-    #[test]
-    fn time() {
-        with_config(|| {
-            let mut app = Application::default();
-            app.setup().unwrap();
-            assert_eq!("%Y-%m-%d", app.matchers[0].date_format());
-
-            app = Application {
-                cli: Cli {
-                    time: true,
-                    no_time: true,
-                    ..Cli::default()
-                },
-                ..Application::default()
-            };
-            app.setup().unwrap();
-            assert_eq!("%Y-%m-%d %Hh%Mm%S", app.matchers[0].date_format());
-        })
-    }
-
-    #[test]
-    fn config_home_value() {
-        with_var("PREFIX_BY_DATE_CONFIG", None::<&str>, || {
-            let xdg_dirs =
-                xdg::BaseDirectories::with_prefix("prefix-by-date").unwrap();
-            assert_eq!(xdg_dirs.get_config_home(), config_home());
-        });
-
-        with_var("PREFIX_BY_DATE_CONFIG", Some("./"), || {
-            assert_eq!(PathBuf::from("./"), config_home());
-        });
-    }
-
-    #[test]
-    fn read_config() {
-        let mut app = Application::default();
-        with_config(|| app.setup().unwrap());
-
-        assert_eq!(4, app.matchers.len());
-        assert_eq!("whatsapp", app.matchers[2].name());
-        assert_eq!("%Y-%m-%d", app.matchers[2].date_format());
-        assert_eq!("cic", app.matchers[3].name());
-        assert_eq!("%Y-%m-%d", app.matchers[3].date_format());
-
-        app = Application {
-            cli: Cli {
-                time: true,
-                no_time: true,
-                ..Cli::default()
-            },
-            ..Application::default()
-        };
-        with_config(|| app.setup().unwrap());
-
-        assert_eq!(3, app.matchers.len());
-        assert_eq!("created", app.matchers[0].name());
-        assert_eq!("modified", app.matchers[1].name());
-        assert_eq!("whatsapp_time", app.matchers[2].name());
-        assert_eq!("%Y-%m-%d %Hh%Mm%S", app.matchers[2].date_format());
     }
 
     #[test]

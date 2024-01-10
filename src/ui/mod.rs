@@ -1,4 +1,4 @@
-use crate::application::{Result, Interactive};
+use crate::application::{Interactive, Result};
 use crate::matcher::Matcher;
 use crate::processing::{
     self, Communication, Confirmation, Error, Processing, Reporter,

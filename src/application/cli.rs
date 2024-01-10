@@ -10,11 +10,43 @@ pub enum Interactive {
     Gui,
 }
 
+#[derive(Default, Debug, Copy, Clone, ValueEnum)]
+pub enum Metadata {
+    #[default]
+    None,
+    Created,
+    Modified,
+    Both,
+}
+
+impl Metadata {
+    pub fn created(&self) -> bool {
+        match self {
+            Self::Created | Self::Both => true,
+            _ => false,
+        }
+    }
+
+    pub fn modified(&self) -> bool {
+        match self {
+            Self::Modified | Self::Both => true,
+            _ => false,
+        }
+    }
+}
+
 #[derive(Default, Debug, Parser)]
 #[command(version)]
 pub struct Cli {
     #[clap(flatten)]
     pub verbose: clap_verbosity_flag::Verbosity,
+
+    /// Sets a custom config directory
+    ///
+    /// The default value is $PREFIX_BY_DATE_CONFIG if it is set, or
+    /// $XDG_CONFIG_HOME/prefix-by-date otherwise
+    #[arg(short = 'C', long, value_name = "DIR")]
+    pub config: Option<PathBuf>,
 
     /// Prefix by today's date
     #[arg(long)]
@@ -32,6 +64,11 @@ pub struct Cli {
     #[arg(short, long, value_enum, default_value_t = Interactive::Off)]
     pub interactive: Interactive,
 
+    /// Metadata matchers to enable
+    #[arg(short, long, value_enum)]
+    pub metadata: Option<Metadata>,
+
+    /// Paths to process
     pub paths: Vec<PathBuf>,
 }
 
