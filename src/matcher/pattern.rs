@@ -204,24 +204,26 @@ impl PatternBuilder {
         table: &toml::Table,
         default_format: &str,
     ) -> Option<Pattern> {
+        use toml::Value;
+
         self.name(name);
 
-        if let Some(toml::Value::String(regex)) = table.get("regex") {
-            self.regex(regex.as_str());
+        if let Some(regex) = table.get("regex").and_then(Value::as_str) {
+            self.regex(regex);
         } else {
             return None;
         }
 
-        if let Some(toml::Value::String(delim)) = table.get("delimiter") {
-            self.delimiter(delim.as_str());
+        if let Some(delim) = table.get("delimiter").and_then(Value::as_str) {
+            self.delimiter(delim);
         }
 
-        if let Some(toml::Value::Boolean(time)) = table.get("time") {
-            self.time(*time);
+        if let Some(time) = table.get("time").and_then(Value::as_bool) {
+            self.time(time);
         }
 
-        if let Some(toml::Value::String(format)) = table.get("format") {
-            self.format(format.as_str());
+        if let Some(format) = table.get("format").and_then(Value::as_str) {
+            self.format(format);
         } else {
             self.format(default_format);
         }
