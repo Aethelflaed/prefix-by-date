@@ -113,6 +113,10 @@ impl Pattern {
         Self::builder().deserialize(name, table, default_format)
     }
 
+    pub fn time(&self) -> bool {
+        self.time
+    }
+
     fn file_stem_from_captures(&self, captures: Captures) -> Option<String> {
         let date_time = MatchedDateTime::new(&captures)?;
 
@@ -165,10 +169,6 @@ impl Matcher for Pattern {
 
     fn date_format(&self) -> &str {
         self.format.as_str()
-    }
-
-    fn time(&self) -> bool {
-        self.time
     }
 }
 

@@ -25,23 +25,21 @@ impl Kind {
 pub struct Metadata {
     kind: Kind,
     format: String,
-    time: bool,
 }
 
 impl Metadata {
-    pub fn new_created(format: &str, time: bool) -> Self {
-        Self::new(Kind::Created, format, time)
+    pub fn new_created(format: &str) -> Self {
+        Self::new(Kind::Created, format)
     }
 
-    pub fn new_modified(format: &str, time: bool) -> Self {
-        Self::new(Kind::Modified, format, time)
+    pub fn new_modified(format: &str) -> Self {
+        Self::new(Kind::Modified, format)
     }
 
-    fn new(kind: Kind, format: &str, time: bool) -> Self {
+    fn new(kind: Kind, format: &str) -> Self {
         Self {
             kind,
             format: format.to_string(),
-            time,
         }
     }
 }
@@ -83,10 +81,6 @@ impl Matcher for Metadata {
     /// Format to use for the date
     fn date_format(&self) -> &str {
         self.format.as_str()
-    }
-    /// Does this matcher handle time as well as date?
-    fn time(&self) -> bool {
-        self.time
     }
 }
 
@@ -133,27 +127,18 @@ mod tests {
 
     #[test]
     fn name() {
-        assert_eq!("created", Metadata::new_created("foo", true).name());
-        assert_eq!("modified", Metadata::new_modified("foo", true).name());
+        assert_eq!("created", Metadata::new_created("foo").name());
+        assert_eq!("modified", Metadata::new_modified("foo").name());
     }
 
     #[test]
     fn delimiter() {
-        assert_eq!(" ", Metadata::new_created("foo", true).delimiter());
+        assert_eq!(" ", Metadata::new_created("foo").delimiter());
     }
 
     #[test]
     fn date_format() {
-        assert_eq!("foo", Metadata::new_created("foo", true).date_format());
-        assert_eq!(
-            "%Y-%m-%d",
-            Metadata::new_created("%Y-%m-%d", true).date_format()
-        );
-    }
-
-    #[test]
-    fn time() {
-        assert_eq!(true, Metadata::new_created("foo", true).time());
-        assert_eq!(false, Metadata::new_created("foo", false).time());
+        assert_eq!("foo", Metadata::new_created("foo").date_format());
+        assert_eq!("%Y-%m-%d", Metadata::new_created("%Y-%m-%d").date_format());
     }
 }

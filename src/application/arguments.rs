@@ -123,18 +123,18 @@ impl Arguments {
                     }
                 }
 
-                if let Some(matchers) = config_table
-                    .get("matchers")
-                    .and_then(Value::as_table)
+                if let Some(matchers) =
+                    config_table.get("matchers").and_then(Value::as_table)
                 {
-                    if let Some(patterns) = matchers.get("patterns").and_then(Value::as_table)
+                    if let Some(patterns) =
+                        matchers.get("patterns").and_then(Value::as_table)
                     {
                         self.patterns = patterns.clone();
                     }
 
                     if let Some(predet) = matchers
                         .get("predetermined_date")
-                            .and_then(Value::as_table)
+                        .and_then(Value::as_table)
                     {
                         if let Some(today) =
                             predet.get("today").and_then(Value::as_bool)
@@ -158,8 +158,12 @@ impl Arguments {
                             (Some(false), Some(false)) => {
                                 self.metadata = Metadata::None
                             }
-                            (Some(false), _) => self.metadata = Metadata::Modified,
-                            (_, Some(false)) => self.metadata = Metadata::Created,
+                            (Some(false), _) => {
+                                self.metadata = Metadata::Modified
+                            }
+                            (_, Some(false)) => {
+                                self.metadata = Metadata::Created
+                            }
                             (_, _) => {}
                         };
                     }

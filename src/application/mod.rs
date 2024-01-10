@@ -48,21 +48,20 @@ impl Application {
         log::set_max_level(self.arguments.log_level_filter());
         log::debug!("Arguments: {:?}", self.arguments);
 
-        let time = self.arguments.time();
         let format = self.arguments.default_format().to_string();
 
         if self.arguments.today() {
             self.matchers
-                .push(Box::new(PredeterminedDate::new(format.as_str(), time)));
+                .push(Box::new(PredeterminedDate::new(format.as_str())));
         }
 
         if self.arguments.metadata().created() {
             self.matchers
-                .push(Box::new(Metadata::new_created(format.as_str(), time)));
+                .push(Box::new(Metadata::new_created(format.as_str())));
         }
         if self.arguments.metadata().modified() {
             self.matchers
-                .push(Box::new(Metadata::new_modified(format.as_str(), time)));
+                .push(Box::new(Metadata::new_modified(format.as_str())));
         }
 
         let patterns = self.arguments.patterns().clone();
@@ -71,7 +70,9 @@ impl Application {
                 if let Some(pattern) =
                     Pattern::deserialize(name, table, format.as_str())
                 {
-                    self.add_matcher(Box::new(pattern));
+                    if pattern.time() == self.arguments.time() {
+                        self.add_matcher(Box::new(pattern));
+                    }
                 }
             }
         });
@@ -89,9 +90,7 @@ impl Application {
     }
 
     pub fn add_matcher(&mut self, matcher: Box<dyn Matcher>) {
-        if matcher.time() == self.arguments.time()
-            && !self.matchers.iter().any(|m| m.name() == matcher.name())
-        {
+        if !self.matchers.iter().any(|m| m.name() == matcher.name()) {
             self.matchers.push(matcher);
         }
     }
@@ -194,6 +193,7 @@ regex = """
     fn add_matcher_with_same_name() {
         let mut app = Application::default();
 
+        assert_eq!(0, app.matchers.len());
         app.add_matcher(Box::<PredeterminedDate>::default());
         assert_eq!(1, app.matchers.len());
 

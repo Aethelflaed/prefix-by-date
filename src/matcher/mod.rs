@@ -23,8 +23,6 @@ pub trait Matcher: DynClone + Send {
     fn delimiter(&self) -> &str;
     /// Format to use for the date
     fn date_format(&self) -> &str;
-    /// Does this matcher handle time as well as date?
-    fn time(&self) -> bool;
 }
 
 dyn_clone::clone_trait_object!(Matcher);
@@ -33,7 +31,6 @@ dyn_clone::clone_trait_object!(Matcher);
 pub struct PredeterminedDate {
     pub date_time: DateTime<Local>,
     pub format: String,
-    pub time: bool,
 }
 
 impl Default for PredeterminedDate {
@@ -41,7 +38,6 @@ impl Default for PredeterminedDate {
         Self {
             date_time: Local::now(),
             format: String::from("%Y-%m-%d"),
-            time: false,
         }
     }
 }
@@ -69,17 +65,12 @@ impl Matcher for PredeterminedDate {
     fn date_format(&self) -> &str {
         self.format.as_str()
     }
-
-    fn time(&self) -> bool {
-        self.time
-    }
 }
 
 impl PredeterminedDate {
-    pub fn new(format: &str, time: bool) -> Self {
+    pub fn new(format: &str) -> Self {
         Self {
             format: format.to_string(),
-            time,
             ..Self::default()
         }
     }
@@ -116,7 +107,6 @@ mod tests {
         let matcher = PredeterminedDate {
             date_time: date(2023, 10, 31),
             format: String::from("%Y-%m-%d %Hh%Mm"),
-            time: false,
         };
 
         let replacement = matcher.check(&PathBuf::from("foo.bar")).unwrap();
