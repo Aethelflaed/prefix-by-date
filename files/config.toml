@@ -1,4 +1,24 @@
-[matchers.cic]
+# Specify whether we should prefix by date and time (true) or just by date
+# (false)
+time = false
+
+# Configure the default format for the two possible values of `time`
+[default_format]
+date = "%Y-%m-%d"
+date_time = "%Y-%m-%d %Hh%Mm%S"
+
+# Enable/disable the metadata matchers
+[matchers.metadata]
+created = true
+modified = true
+
+# Enable/disable pseudo-matchers that work with pre-determined date
+[matchers.predetermined_date]
+today = true
+
+# All values defined under matchers.patterns.* configure a pattern matcher
+
+[matchers.patterns.cic]
 regex = """
   \\A
   (?<rest>.+)
@@ -9,7 +29,7 @@ regex = """
   \\z
 """
 
-[matchers.date_suffix]
+[matchers.patterns.date_suffix]
 regex = """
   \\A
   (?<start>.+)[\\ _-]
@@ -19,7 +39,7 @@ regex = """
   \\z
 """
 
-[matchers.date_infix]
+[matchers.patterns.date_infix]
 regex = """
   \\A
   (?<start>.+)[\\ _-]
@@ -30,7 +50,7 @@ regex = """
   \\z
 """
 
-[matchers.date_time_infix]
+[matchers.patterns.date_time_infix]
 regex = """
   \\A
   (?<start>.+)[\\ _-]
@@ -45,7 +65,7 @@ regex = """
 """
 time = true
 
-[matchers.date_time_suffix]
+[matchers.patterns.date_time_suffix]
 regex = """
   \\A
   (?<start>.+)[\\ _-]
