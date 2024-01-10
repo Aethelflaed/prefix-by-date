@@ -1,3 +1,4 @@
+use crate::application::DEFAULT_DATE_FORMAT;
 use crate::matcher::Matcher;
 use crate::replacement::Replacement;
 
@@ -20,7 +21,7 @@ impl Default for Pattern {
     fn default() -> Self {
         Self {
             regex: Regex::new(".").expect("Default pattern to compile"),
-            format: String::from("%Y-%m-%d"),
+            format: String::from(DEFAULT_DATE_FORMAT),
             name: String::from(""),
             delimiter: String::from(""),
             time: false,
@@ -40,7 +41,7 @@ impl Default for PatternBuilder {
     fn default() -> Self {
         Self {
             regex: String::from(""),
-            format: String::from("%Y-%m-%d"),
+            format: String::from(DEFAULT_DATE_FORMAT),
             name: None,
             delimiter: None,
             time: None,
@@ -392,6 +393,8 @@ mod tests {
 
     #[test]
     fn pattern_match_ymd_hms_rest() {
+        use crate::application::DEFAULT_DATE_TIME_FORMAT;
+
         let pattern = Pattern::builder()
             .regex(
                 r"
@@ -407,7 +410,7 @@ mod tests {
                 ",
             )
             .name("test")
-            .format("%Y-%m-%d %Hh%Mm%S")
+            .format(DEFAULT_DATE_TIME_FORMAT)
             .build()
             .unwrap();
 

@@ -319,7 +319,7 @@ impl<'a> Resolver<'a> {
                 replacements.push(rep);
             }
 
-            options.push(String::from("Abort"));
+            options.push(String::from("Cancel"));
 
             let selection = FuzzySelect::with_theme(&self.ui.theme)
                 .with_prompt("What do you want to do?")

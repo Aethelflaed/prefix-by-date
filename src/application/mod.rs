@@ -8,6 +8,7 @@ pub use cli::Interactive;
 
 mod arguments;
 use arguments::Arguments;
+pub use arguments::{DEFAULT_DATE_FORMAT, DEFAULT_DATE_TIME_FORMAT};
 
 mod error;
 pub use error::Error;
@@ -51,17 +52,7 @@ impl Application {
         let format = self.arguments.default_format().to_string();
 
         if self.arguments.today() {
-            self.matchers
-                .push(Box::new(PredeterminedDate::new(format.as_str())));
-        }
-
-        if self.arguments.metadata().created() {
-            self.matchers
-                .push(Box::new(Metadata::new_created(format.as_str())));
-        }
-        if self.arguments.metadata().modified() {
-            self.matchers
-                .push(Box::new(Metadata::new_modified(format.as_str())));
+            self.add_matcher(PredeterminedDate::new(format.as_str()));
         }
 
         let patterns = self.arguments.patterns().clone();
@@ -70,12 +61,17 @@ impl Application {
                 if let Some(pattern) =
                     Pattern::deserialize(name, table, format.as_str())
                 {
-                    if pattern.time() == self.arguments.time() {
-                        self.add_matcher(Box::new(pattern));
-                    }
+                    self.add_pattern_matcher(pattern);
                 }
             }
         });
+
+        if self.arguments.metadata().created() {
+            self.add_matcher(Metadata::new_created(format.as_str()));
+        }
+        if self.arguments.metadata().modified() {
+            self.add_matcher(Metadata::new_modified(format.as_str()));
+        }
 
         Ok(())
     }
@@ -89,9 +85,17 @@ impl Application {
         self.ui.process(&self.matchers, self.arguments.paths())
     }
 
-    pub fn add_matcher(&mut self, matcher: Box<dyn Matcher>) {
+    pub fn add_pattern_matcher(&mut self, pattern: Pattern) {
+        if pattern.time() == self.arguments.time()
+            && !RESERVED_MATCHER_NAMES.contains(&pattern.name())
+        {
+            self.add_matcher(pattern);
+        }
+    }
+
+    pub fn add_matcher<M: Matcher + 'static>(&mut self, matcher: M) {
         if !self.matchers.iter().any(|m| m.name() == matcher.name()) {
-            self.matchers.push(matcher);
+            self.matchers.push(Box::new(matcher));
         }
     }
 
@@ -123,6 +127,12 @@ impl Application {
         }
     }
 }
+
+const RESERVED_MATCHER_NAMES: [&str; 3] = [
+    crate::matcher::predetermined_date::TODAY,
+    crate::matcher::metadata::CREATED,
+    crate::matcher::metadata::MODIFIED,
+];
 
 #[cfg(test)]
 mod tests {
@@ -194,10 +204,10 @@ regex = """
         let mut app = Application::default();
 
         assert_eq!(0, app.matchers.len());
-        app.add_matcher(Box::<PredeterminedDate>::default());
+        app.add_matcher(PredeterminedDate::default());
         assert_eq!(1, app.matchers.len());
 
-        app.add_matcher(Box::<PredeterminedDate>::default());
+        app.add_matcher(PredeterminedDate::default());
         assert_eq!(1, app.matchers.len());
     }
 }

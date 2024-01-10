@@ -22,14 +22,17 @@ impl Default for Arguments {
         Self {
             cli: Cli::default(),
             time: false,
-            default_date_format: String::from("%Y-%m-%d"),
-            default_date_time_format: String::from("%Y-%m-%d %Hh%Mm%S"),
+            default_date_format: String::from(DEFAULT_DATE_FORMAT),
+            default_date_time_format: String::from(DEFAULT_DATE_TIME_FORMAT),
             today: false,
             metadata: Metadata::default(),
             patterns: toml::Table::default(),
         }
     }
 }
+
+pub const DEFAULT_DATE_FORMAT: &str = "%Y-%m-%d";
+pub const DEFAULT_DATE_TIME_FORMAT: &str = "%Y-%m-%d %Hh%Mm%S";
 
 impl Arguments {
     pub fn parse() -> Self {

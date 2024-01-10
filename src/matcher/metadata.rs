@@ -15,11 +15,14 @@ enum Kind {
 impl Kind {
     fn name(&self) -> &'static str {
         match self {
-            Kind::Modified => "modified",
-            Kind::Created => "created",
+            Kind::Created => CREATED,
+            Kind::Modified => MODIFIED,
         }
     }
 }
+
+pub const CREATED: &str = "created";
+pub const MODIFIED: &str = "modified";
 
 #[derive(Default, Clone)]
 pub struct Metadata {
@@ -95,8 +98,10 @@ mod tests {
 
     #[test]
     fn check() {
-        let created = Metadata::new_created("%Y-%m-%d %Hh%Mm%S", true);
-        let modified = Metadata::new_modified("%Y-%m-%d %Hh%Mm%S", true);
+        use crate::application::DEFAULT_DATE_TIME_FORMAT;
+
+        let created = Metadata::new_created(DEFAULT_DATE_TIME_FORMAT);
+        let modified = Metadata::new_modified(DEFAULT_DATE_TIME_FORMAT);
 
         let temp_file = NamedTempFile::new("foo").unwrap();
         let path = temp_file.path();
@@ -120,7 +125,7 @@ mod tests {
 
     #[test]
     fn check_unexisting_path() {
-        assert!(Metadata::new_created("foo", true)
+        assert!(Metadata::new_created("foo")
             .check(Path::new("foo"))
             .is_none());
     }
@@ -138,7 +143,12 @@ mod tests {
 
     #[test]
     fn date_format() {
+        use crate::application::DEFAULT_DATE_FORMAT;
+
         assert_eq!("foo", Metadata::new_created("foo").date_format());
-        assert_eq!("%Y-%m-%d", Metadata::new_created("%Y-%m-%d").date_format());
+        assert_eq!(
+            DEFAULT_DATE_FORMAT,
+            Metadata::new_created(DEFAULT_DATE_FORMAT).date_format()
+        );
     }
 }

@@ -21,17 +21,11 @@ pub enum Metadata {
 
 impl Metadata {
     pub fn created(&self) -> bool {
-        match self {
-            Self::Created | Self::Both => true,
-            _ => false,
-        }
+        matches!(self, Self::Created | Self::Both)
     }
 
     pub fn modified(&self) -> bool {
-        match self {
-            Self::Modified | Self::Both => true,
-            _ => false,
-        }
+        matches!(self, Self::Modified | Self::Both)
     }
 }
 
