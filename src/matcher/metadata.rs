@@ -48,29 +48,17 @@ impl Metadata {
 }
 
 impl Matcher for Metadata {
-    /// Check if the given path should be replaced by the matcher and
-    /// if so, return the appropriate Replacement
-    fn check(&self, path: &Path) -> Option<Replacement> {
-        let mut replacement = Replacement::try_from(path).ok()?;
+    fn determine(
+        &self,
+        replacement: &Replacement,
+    ) -> Option<(String, DateTime<Local>)> {
+        let metadata = replacement.path().metadata().ok()?;
+        let date_time = match self.kind {
+            Kind::Created => metadata.created().ok()?,
+            Kind::Modified => metadata.modified().ok()?,
+        };
 
-        if let Ok(metadata) = path.metadata() {
-            if let Ok(time) = match self.kind {
-                Kind::Created => metadata.created(),
-                Kind::Modified => metadata.modified(),
-            } {
-                let time: DateTime<Local> = time.into();
-
-                replacement.new_file_stem = format!(
-                    "{} {}",
-                    time.format(self.date_format()),
-                    replacement.file_stem
-                );
-
-                return Some(replacement);
-            }
-        }
-
-        None
+        Some((replacement.file_stem.clone(), date_time.into()))
     }
 
     /// Name of the matcher
@@ -154,5 +142,10 @@ mod tests {
             DEFAULT_DATE_FORMAT,
             Metadata::new_created(DEFAULT_DATE_FORMAT).date_format()
         );
+    }
+
+    #[test]
+    fn auto_accept() {
+        assert!(!Metadata::new_created("foo").auto_accept());
     }
 }

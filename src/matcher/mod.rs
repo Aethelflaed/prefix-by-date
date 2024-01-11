@@ -2,6 +2,7 @@ use crate::replacement::Replacement;
 
 use std::path::Path;
 
+use chrono::{DateTime, Local};
 use dyn_clone::DynClone;
 
 pub mod predetermined_date;
@@ -17,7 +18,28 @@ pub use metadata::Metadata;
 pub trait Matcher: DynClone + Send {
     /// Check if the given path should be replaced by the matcher and
     /// if so, return the appropriate Replacement
-    fn check(&self, path: &Path) -> Option<Replacement>;
+    fn check(&self, path: &Path) -> Option<Replacement> {
+        let mut replacement = Replacement::try_from(path).ok()?;
+        let (name, date_time) = self.determine(&replacement)?;
+
+        replacement.new_file_stem = format!(
+            "{}{}{}",
+            date_time.format(self.date_format()),
+            self.delimiter(),
+            name
+        );
+
+        Some(replacement)
+    }
+
+    /// Determine the name and date-time to use
+    ///
+    /// The whole &Replacement is passed so you can access the path() if needed,
+    /// or directly the file_stem
+    fn determine(
+        &self,
+        replacement: &Replacement,
+    ) -> Option<(String, DateTime<Local>)>;
 
     /// Name of the matcher
     fn name(&self) -> &str;

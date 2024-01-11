@@ -2,8 +2,6 @@ use crate::application::DEFAULT_DATE_FORMAT;
 use crate::matcher::Matcher;
 use crate::replacement::Replacement;
 
-use std::path::Path;
-
 use chrono::{DateTime, Local};
 
 #[derive(Default, Clone, Copy)]
@@ -49,15 +47,11 @@ impl PredeterminedDate {
 }
 
 impl Matcher for PredeterminedDate {
-    fn check(&self, path: &Path) -> Option<Replacement> {
-        let mut replacement = Replacement::try_from(path).ok()?;
-        replacement.new_file_stem = format!(
-            "{} {}",
-            self.date_time.format(self.date_format()),
-            replacement.file_stem,
-        );
-
-        Some(replacement)
+    fn determine(
+        &self,
+        replacement: &Replacement,
+    ) -> Option<(String, DateTime<Local>)> {
+        Some((replacement.file_stem.clone(), self.date_time))
     }
 
     fn name(&self) -> &str {

@@ -2,7 +2,6 @@ use crate::application::DEFAULT_DATE_FORMAT;
 use crate::matcher::Matcher;
 use crate::replacement::Replacement;
 
-use std::path::Path;
 use std::str::FromStr;
 
 use chrono::{DateTime, Local, TimeZone};
@@ -117,15 +116,18 @@ impl Pattern {
     pub fn time(&self) -> bool {
         self.time
     }
+}
 
-    fn file_stem_from_captures(&self, captures: Captures) -> Option<String> {
-        let date_time = MatchedDateTime::new(&captures)?;
+impl Matcher for Pattern {
+    fn determine(
+        &self,
+        replacement: &Replacement,
+    ) -> Option<(String, DateTime<Local>)> {
+        let captures = self.regex.captures(&replacement.file_stem)?;
+        let date_time = MatchedDateTime::new(&captures)?.resolve()?;
 
         let mut elements = Vec::<String>::default();
 
-        if let Some(text) = captures.name("rest") {
-            elements.push(text.as_str().into());
-        }
         if let Some(start) = captures.name("start") {
             elements.push(start.as_str().into());
 
@@ -133,31 +135,11 @@ impl Pattern {
                 elements.push(end.as_str().into());
             }
         }
-
-        match date_time.resolve() {
-            None => return None,
-            Some(time) => {
-                elements.push(time.format(self.date_format()).to_string())
-            }
+        if let Some(text) = captures.name("rest") {
+            elements.push(text.as_str().into());
         }
 
-        elements.rotate_right(1);
-        Some(elements.join(&self.delimiter))
-    }
-}
-
-impl Matcher for Pattern {
-    fn check(&self, path: &Path) -> Option<Replacement> {
-        let mut replacement = Replacement::try_from(path).ok()?;
-
-        let file_stem = self
-            .regex
-            .captures(&replacement.file_stem)
-            .and_then(|captures| self.file_stem_from_captures(captures))?;
-
-        replacement.new_file_stem = file_stem;
-
-        Some(replacement)
+        Some((elements.join(self.delimiter()), date_time))
     }
 
     fn name(&self) -> &str {
@@ -446,7 +428,7 @@ mod tests {
                 (?<min>\d{2})
                 (?<sec>\d{2})
                 -
-                .+
+                (?<rest>.+)
                 ",
             )
             .name("ymd_hms")
@@ -457,7 +439,10 @@ mod tests {
             PathBuf::from("skfljdlks-20231028-235959-almost midnight.jpg");
         let replacement = pattern.check(&name).unwrap();
 
-        assert_eq!(String::from("2023-10-28"), replacement.new_file_stem);
+        assert_eq!(
+            String::from("2023-10-28 almost midnight"),
+            replacement.new_file_stem
+        );
     }
 
     mod deserialize {
