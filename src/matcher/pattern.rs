@@ -171,6 +171,10 @@ impl Matcher for Pattern {
     fn date_format(&self) -> &str {
         self.format.as_str()
     }
+
+    fn auto_accept(&self) -> bool {
+        false
+    }
 }
 
 impl PatternBuilder {

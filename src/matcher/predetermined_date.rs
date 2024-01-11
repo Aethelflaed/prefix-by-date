@@ -71,6 +71,10 @@ impl Matcher for PredeterminedDate {
     fn date_format(&self) -> &str {
         self.format.as_str()
     }
+
+    fn auto_accept(&self) -> bool {
+        true
+    }
 }
 
 #[cfg(test)]

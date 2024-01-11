@@ -85,6 +85,10 @@ impl Matcher for Metadata {
     fn date_format(&self) -> &str {
         self.format.as_str()
     }
+
+    fn auto_accept(&self) -> bool {
+        false
+    }
 }
 
 #[cfg(test)]

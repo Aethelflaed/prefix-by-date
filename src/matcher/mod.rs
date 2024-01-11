@@ -25,6 +25,10 @@ pub trait Matcher: DynClone + Send {
     fn delimiter(&self) -> &str;
     /// Format to use for the date
     fn date_format(&self) -> &str;
+
+    /// Indicates if a replacement produced by this matcher can be accepted
+    /// without user confirmation or not.
+    fn auto_accept(&self) -> bool;
 }
 
 dyn_clone::clone_trait_object!(Matcher);

@@ -13,7 +13,7 @@ pub struct ProcessingMatcher {
 impl From<Box<dyn Matcher>> for ProcessingMatcher {
     fn from(matcher: Box<dyn Matcher>) -> Self {
         Self {
-            confirmed: false,
+            confirmed: matcher.auto_accept(),
             ignored: false,
             matcher,
         }
@@ -55,10 +55,19 @@ mod tests {
 
     use std::path::PathBuf;
 
-    use crate::matcher::Pattern;
+    use crate::matcher::{Pattern, PredeterminedDate};
 
     fn matcher() -> ProcessingMatcher {
         ProcessingMatcher::from(Box::<Pattern>::default() as Box<dyn Matcher>)
+    }
+
+    #[test]
+    fn auto_accept_matcher_is_confirmed() {
+        let matcher = ProcessingMatcher::from(
+            Box::<PredeterminedDate>::default() as Box<dyn Matcher>,
+        );
+
+        assert!(matcher.confirmed());
     }
 
     #[test]
