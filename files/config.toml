@@ -14,7 +14,7 @@ modified = true
 
 # Enable/disable pseudo-matchers that work with pre-determined date
 [matchers.predetermined_date]
-today = true
+today = false
 
 # All values defined under matchers.patterns.* configure a pattern matcher
 
