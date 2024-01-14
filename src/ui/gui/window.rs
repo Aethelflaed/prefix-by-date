@@ -40,22 +40,30 @@ enum ProcessingState {
 
 impl Window {
     fn execute(&mut self, action: Action) -> Command<Message> {
+        use Action::*;
+
         match action {
-            Action::Customize(file_stem) => {
+            Customize(file_stem) => {
                 self.state.customize(file_stem);
 
                 focus_on(CUSTOMIZE_INPUT_ID.clone())
             }
-            Action::ConfirmCustomization => {
+            ConfirmCustomization => {
                 if let Some(rep) = self.state.customized_replacement() {
                     self.send_confirmation(Confirmation::Replace(rep))
                 } else {
                     Command::none()
                 }
             }
-            _ => self.send_confirmation(
-                action.try_into().expect("Customize handled locally"),
-            ),
+            Accept => self.send_confirmation(Confirmation::Accept),
+            Always => self.send_confirmation(Confirmation::Always),
+            Skip => self.send_confirmation(Confirmation::Skip),
+            Refuse => self.send_confirmation(Confirmation::Refuse),
+            Ignore => self.send_confirmation(Confirmation::Ignore),
+            Abort => self.send_confirmation(Confirmation::Abort),
+            Replace(rep) => self.send_confirmation(Confirmation::Replace(rep)),
+            ViewAlternatives => unimplemented!(),
+            Cancel => unimplemented!(),
         }
     }
 
