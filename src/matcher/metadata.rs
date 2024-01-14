@@ -1,8 +1,6 @@
 use crate::matcher::Matcher;
 use crate::replacement::Replacement;
 
-use std::path::Path;
-
 use chrono::{DateTime, Local};
 
 #[derive(Default, Clone, Copy)]
@@ -85,6 +83,7 @@ mod tests {
     use assert_fs::fixture::{FileTouch, NamedTempFile};
     use pretty_assertions::{assert_eq, assert_ne};
 
+    use std::path::Path;
     use std::thread::sleep;
     use std::time::Duration;
 

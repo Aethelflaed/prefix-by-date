@@ -17,8 +17,6 @@ pub enum Message {
     Action(Action),
     ToggleLog,
     ToggleDebug,
-    CustomizeInput(String),
-    CustomizeSubmit,
     Quit,
     MaybeShortcut(KeyCode),
 }
@@ -43,10 +41,17 @@ enum ProcessingState {
 impl Window {
     fn execute(&mut self, action: Action) -> Command<Message> {
         match action {
-            Action::Customize(rep) => {
-                self.state.customize(rep.new_file_stem.clone());
+            Action::Customize(file_stem) => {
+                self.state.customize(file_stem);
 
-                iced::widget::focus_next()
+                focus_on(CUSTOMIZE_INPUT_ID.clone())
+            }
+            Action::ConfirmCustomization => {
+                if let Some(rep) = self.state.customized_replacement() {
+                    self.send_confirmation(Confirmation::Replace(rep))
+                } else {
+                    Command::none()
+                }
             }
             _ => self.send_confirmation(
                 action.try_into().expect("Customize handled locally"),
@@ -152,18 +157,6 @@ impl Application for Window {
 
                 Command::none()
             }
-            Message::CustomizeInput(string) => {
-                self.state.customize(string);
-
-                Command::none()
-            }
-            Message::CustomizeSubmit => {
-                if let Some(rep) = self.state.customized_replacement() {
-                    self.send_confirmation(Confirmation::Replace(rep))
-                } else {
-                    Command::none()
-                }
-            }
             Message::Action(action) => self.execute(action),
             Message::Quit => iced::window::close(),
             Message::MaybeShortcut(key_code) => {
@@ -266,7 +259,7 @@ impl Application for Window {
                                             rep.clone()
                                         )),
                                         action_button(Action::Customize(
-                                            rep.clone()
+                                            rep.new_file_stem.clone()
                                         )),
                                         text(rep.new_file_name()),
                                     ]
@@ -313,6 +306,19 @@ impl Application for Window {
     fn theme(&self) -> Theme {
         Theme::Dark
     }
+}
+
+use once_cell::sync::Lazy;
+static CUSTOMIZE_INPUT_ID: Lazy<iced::widget::text_input::Id> =
+    Lazy::new(iced::widget::text_input::Id::unique);
+
+fn focus_on<T>(id: T) -> Command<Message>
+where
+    T: Into<iced::advanced::widget::Id>,
+{
+    Command::widget(iced::advanced::widget::operation::focusable::focus(
+        id.into(),
+    ))
 }
 
 fn filter_events(
@@ -391,8 +397,9 @@ fn customize(string: &str) -> Element<'_, Message> {
     use iced::widget::TextInput;
 
     TextInput::new("Type the new file name here", string)
-        .on_input(Message::CustomizeInput)
-        .on_submit(Message::CustomizeSubmit)
+        .id(CUSTOMIZE_INPUT_ID.clone())
+        .on_input(|value| Message::Action(Action::Customize(value)))
+        .on_submit(Message::Action(Action::ConfirmCustomization))
         .padding(10)
         .into()
 }
@@ -409,6 +416,7 @@ fn iced_shortcut_for(action: &Action) -> Option<KeyCode> {
         Action::Ignore => Some(KeyCode::I),
         Action::Abort => Some(KeyCode::Q),
         Action::Cancel => None,
+        Action::ConfirmCustomization => None,
     }
 }
 
@@ -422,6 +430,7 @@ fn action_button(action: Action) -> iced::widget::Button<'static, Message> {
         Action::Ignore => "Ignore",
         Action::Abort => "Quit",
         Action::Replace(_) => "Use",
+        Action::ConfirmCustomization => "Confirm",
         Action::ViewAlternatives => "Alternatives",
         Action::Cancel => "Cancel",
     };

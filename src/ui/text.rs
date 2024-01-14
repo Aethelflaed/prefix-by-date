@@ -286,12 +286,19 @@ impl<'a> Resolver<'a> {
             Action::ViewAlternatives => {
                 self.view_alternatives();
             }
-            Action::Customize(rep) => {
-                self.state.customize(rep.new_file_stem.clone());
+            Action::Customize(file_stem) => {
+                self.state.customize(file_stem.clone());
                 self.customize();
             }
             Action::Cancel | Action::Replace(_) => {
                 log::error!("Unexpected action {:?}", action);
+            }
+            Action::ConfirmCustomization => {
+                if let Some(replacement) = self.state.customized_replacement() {
+                    self.state.set_current_resolving(Confirmation::Replace(
+                        replacement,
+                    ));
+                }
             }
         }
     }
@@ -403,6 +410,7 @@ impl<'a> Resolver<'a> {
             Action::Ignore => Some("Ignore all similar rename and continue"),
             Action::Abort => Some("Quit now, refusing this rename"),
             Action::Cancel => None,
+            Action::ConfirmCustomization => None,
         }
     }
 }

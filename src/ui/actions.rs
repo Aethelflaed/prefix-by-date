@@ -12,7 +12,8 @@ pub enum Action {
     Ignore,
     Abort,
     Replace(Replacement),
-    Customize(Replacement),
+    Customize(String),
+    ConfirmCustomization,
     ViewAlternatives,
     Cancel,
 }
@@ -50,6 +51,7 @@ impl TryInto<Confirmation> for Action {
             Action::Ignore => Ok(Confirmation::Ignore),
             Action::Abort => Ok(Confirmation::Abort),
             Action::Customize(_) => Err(()),
+            Action::ConfirmCustomization => Err(()),
             Action::ViewAlternatives => Err(()),
             Action::Cancel => Err(()),
         }
@@ -65,7 +67,9 @@ impl Action {
                     actions.push(Action::ViewAlternatives);
                 }
                 if change.is_further_customizable() {
-                    actions.push(Action::Customize(change.replacement.clone()));
+                    actions.push(Action::Customize(
+                        change.replacement.new_file_stem.clone(),
+                    ));
                 }
                 actions.extend_from_slice(&vec![
                     Action::Replace(change.replacement.clone()),
@@ -80,7 +84,9 @@ impl Action {
             Current::Rescue(change) => {
                 let mut actions = vec![];
                 if change.is_further_customizable() {
-                    actions.push(Action::Customize(change.replacement.clone()));
+                    actions.push(Action::Customize(
+                        change.replacement.new_file_stem.clone(),
+                    ));
                 }
                 actions.extend_from_slice(&vec![
                     Action::Replace(change.replacement.clone()),
@@ -99,12 +105,13 @@ impl Action {
         vec![
             Action::Accept,
             Action::Always,
-            Action::Customize(Replacement::default()),
+            Action::Customize(String::default()),
             Action::Replace(Replacement::default()),
             Action::Skip,
             Action::Refuse,
             Action::Ignore,
             Action::Abort,
+            Action::ConfirmCustomization,
             Action::ViewAlternatives,
             Action::Cancel,
         ]
@@ -122,6 +129,7 @@ pub fn shortcut_for(action: &Action) -> Option<char> {
         Action::Ignore => Some('I'),
         Action::Abort => Some('Q'),
         Action::Replace(_) => None,
+        Action::ConfirmCustomization => None,
         Action::ViewAlternatives => Some('V'),
         Action::Cancel => None,
     }
@@ -155,11 +163,11 @@ mod tests {
         let actions = Action::determine_for(&current);
 
         assert!(!actions.contains(&Action::ViewAlternatives));
-        assert!(actions.contains(&Action::Customize(Replacement::default())));
+        assert!(actions.contains(&Action::Customize(String::default())));
 
         assert_eq!(actions[0], Action::Accept);
         assert_eq!(actions[1], Action::Always);
-        assert_eq!(actions[2], Action::Customize(Replacement::default()));
+        assert_eq!(actions[2], Action::Customize(String::default()));
         assert_eq!(actions[3], Action::Replace(Replacement::default()));
         assert_eq!(actions[4], Action::Skip);
         assert_eq!(actions[5], Action::Refuse);
@@ -179,7 +187,7 @@ mod tests {
         let actions = Action::determine_for(&current);
 
         assert!(!actions.contains(&Action::ViewAlternatives));
-        assert!(!actions.contains(&Action::Customize(Replacement::default())));
+        assert!(!actions.contains(&Action::Customize(String::default())));
 
         assert_eq!(actions[0], Action::Accept);
         assert_eq!(actions[1], Action::Always);
@@ -206,12 +214,12 @@ mod tests {
         let actions = Action::determine_for(&current);
 
         assert!(actions.contains(&Action::ViewAlternatives));
-        assert!(actions.contains(&Action::Customize(Replacement::default())));
+        assert!(actions.contains(&Action::Customize(String::default())));
 
         assert_eq!(actions[0], Action::Accept);
         assert_eq!(actions[1], Action::Always);
         assert_eq!(actions[2], Action::ViewAlternatives);
-        assert_eq!(actions[3], Action::Customize(Replacement::default()));
+        assert_eq!(actions[3], Action::Customize(String::default()));
         assert_eq!(actions[4], Action::Replace(Replacement::default()));
         assert_eq!(actions[5], Action::Skip);
         assert_eq!(actions[6], Action::Refuse);
@@ -236,7 +244,7 @@ mod tests {
         let actions = Action::determine_for(&current);
 
         assert!(actions.contains(&Action::ViewAlternatives));
-        assert!(actions.contains(&Action::Customize(Replacement::default())));
+        assert!(actions.contains(&Action::Customize(String::default())));
     }
 
     #[test]
@@ -247,9 +255,9 @@ mod tests {
         let current = Current::Rescue(change);
         let actions = Action::determine_for(&current);
 
-        assert!(actions.contains(&Action::Customize(Replacement::default())));
+        assert!(actions.contains(&Action::Customize(String::default())));
 
-        assert_eq!(actions[0], Action::Customize(Replacement::default()));
+        assert_eq!(actions[0], Action::Customize(String::default()));
         assert_eq!(actions[1], Action::Replace(Replacement::default()));
         assert_eq!(actions[2], Action::Skip);
         assert_eq!(actions[3], Action::Refuse);
@@ -267,7 +275,7 @@ mod tests {
         let current = Current::Rescue(change);
         let actions = Action::determine_for(&current);
 
-        assert!(!actions.contains(&Action::Customize(Replacement::default())));
+        assert!(!actions.contains(&Action::Customize(String::default())));
 
         assert_eq!(actions[0], Action::Replace(Replacement::default()));
         assert_eq!(actions[1], Action::Skip);
@@ -281,7 +289,7 @@ mod tests {
 
         assert_eq!(actions[0], Action::Accept);
         assert_eq!(actions[1], Action::Always);
-        assert_eq!(actions[2], Action::Customize(Replacement::default()));
+        assert_eq!(actions[2], Action::Customize(String::default()));
         assert_eq!(actions[3], Action::Replace(Replacement::default()));
         assert_eq!(actions[4], Action::Skip);
         assert_eq!(actions[5], Action::Refuse);
@@ -338,7 +346,7 @@ mod tests {
         assert_eq!(
             Err(()),
             TryInto::<Confirmation>::try_into(Action::Customize(
-                Replacement::default()
+                String::default()
             ))
         );
         assert_eq!(
