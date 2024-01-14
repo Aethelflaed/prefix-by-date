@@ -94,6 +94,8 @@ impl Arguments {
             self.metadata = metadata;
         }
 
+        self.today = self.cli.today;
+
         self
     }
 
@@ -207,5 +209,15 @@ mod tests {
         with_var("PREFIX_BY_DATE_CONFIG", Some("./"), || {
             assert_eq!(PathBuf::from("./"), config_home());
         });
+    }
+
+    #[test]
+    fn default_format() {
+        let mut arguments = Arguments::default();
+
+        assert_eq!(DEFAULT_DATE_FORMAT, arguments.default_format());
+
+        arguments.time = true;
+        assert_eq!(DEFAULT_DATE_TIME_FORMAT, arguments.default_format());
     }
 }
