@@ -329,7 +329,7 @@ mod tests {
 
         assert_eq!(
             actions.iter().filter_map(func).collect::<Vec<_>>(),
-            vec!['Y', 'A', 'C', '?', 'S', 'R', 'I', 'Q', 'V', '?']
+            vec!['Y', 'A', 'C', '?', 'S', 'R', 'I', 'Q', '?', 'V', '?']
         );
     }
 
