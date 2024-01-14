@@ -5,16 +5,32 @@ use crate::ui::state::Current;
 
 #[derive(Debug, Clone)]
 pub enum Action {
+    /// Accept the current replacement
     Accept,
+    /// Accept the current replacement and all successive replacements
+    /// proposed by the same matcher
     Always,
+    /// Skip processing this path and try the next one
     Skip,
+    /// Refuse the current replacement, potentially allowing another one to be
+    /// proposed
     Refuse,
+    /// Refuse the current replacement, potentially allowing another one to be
+    /// proposed and also ignore the matcher that proposed the current
+    /// replacement for all successive paths
     Ignore,
+    /// Abort, quit the program now
     Abort,
+    /// Replace the current replacement with the given one
     Replace(Replacement),
+    /// Customize the current change with the given file stem.
     Customize(String),
+    /// Confirm the current customization, usually an intermediary step to
+    /// generate a Replace(_)
     ConfirmCustomization,
+    /// View other proposed replacements for the current path
     ViewAlternatives,
+    /// Cancel the current customization
     Cancel,
 }
 
