@@ -244,7 +244,9 @@ impl<'a> Resolver<'a> {
                     self.main_dialog();
                 }
                 Current::Resolving(_, conf) => return conf.clone(),
-                _ => {}
+                Current::Path(_) | Current::None | Current::Resolved => {
+                    unreachable!()
+                }
             };
         }
     }
