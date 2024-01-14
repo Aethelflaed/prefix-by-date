@@ -176,6 +176,7 @@ impl Communication for Text {
         Resolver {
             ui: self,
             state: &mut state,
+            action: None,
         }
         .resolve()
     }
@@ -192,6 +193,7 @@ impl Communication for Text {
                 let resolution = Resolver {
                     ui: self,
                     state: &mut state,
+                    action: None,
                 }
                 .resolve();
                 match resolution {
@@ -218,36 +220,41 @@ impl Communication for Text {
 struct Resolver<'a> {
     ui: &'a Text,
     state: &'a mut State,
+    action: Option<Action>,
 }
 
 impl<'a> Resolver<'a> {
     fn resolve(&mut self) -> Confirmation {
         loop {
-            match self.state.current() {
-                Current::Confirm(change) => {
-                    let rep = &change.replacement;
+            if let Some(action) = self.action.take() {
+                self.execute(action);
+            } else {
+                match self.state.current() {
+                    Current::Confirm(change) => {
+                        let rep = &change.replacement;
 
-                    println!("In {}", rep.parent.display());
-                    println!(
-                        "Replace {} with {}",
-                        rep.file_name(),
-                        rep.new_file_name()
-                    );
+                        println!("In {}", rep.parent.display());
+                        println!(
+                            "Replace {} with {}",
+                            rep.file_name(),
+                            rep.new_file_name()
+                        );
 
-                    self.main_dialog();
-                }
-                Current::Rescue(change) => {
-                    let rep = &change.replacement;
+                        self.main_dialog();
+                    }
+                    Current::Rescue(change) => {
+                        let rep = &change.replacement;
 
-                    println!("In {}", rep.parent.display());
-                    println!("No match was found for {}", rep.file_name());
-                    self.main_dialog();
-                }
-                Current::Resolving(_, conf) => return conf.clone(),
-                Current::Path(_) | Current::None | Current::Resolved => {
-                    unreachable!()
-                }
-            };
+                        println!("In {}", rep.parent.display());
+                        println!("No match was found for {}", rep.file_name());
+                        self.main_dialog();
+                    }
+                    Current::Resolving(_, conf) => return conf.clone(),
+                    Current::Path(_) | Current::None | Current::Resolved => {
+                        unreachable!()
+                    }
+                };
+            }
         }
     }
 
@@ -260,7 +267,7 @@ impl<'a> Resolver<'a> {
         for action in self.state.actions().iter() {
             if let Some(prompt) = self.prompt_for(action) {
                 prompts.push(prompt);
-                actions.push(action.clone());
+                actions.push(action);
             }
         }
 
@@ -270,7 +277,12 @@ impl<'a> Resolver<'a> {
             .interact()
             .unwrap();
 
-        let action = &actions[selection];
+        self.action = actions
+            .get(selection)
+            .map(|action_ref| (*action_ref).clone());
+    }
+
+    fn execute(&mut self, action: Action) {
         match action {
             Action::Accept
             | Action::Always
@@ -289,18 +301,17 @@ impl<'a> Resolver<'a> {
                 self.view_alternatives();
             }
             Action::Customize(file_stem) => {
-                self.state.customize(file_stem.clone());
-                self.customize();
+                self.customize(file_stem);
             }
-            Action::Cancel | Action::Replace(_) => {
-                log::error!("Unexpected action {:?}", action);
+            Action::Cancel => {
+                self.state.cancel_customize();
+            }
+            Action::Replace(replacement) => {
+                self.state
+                    .set_current_resolving(Confirmation::Replace(replacement));
             }
             Action::ConfirmCustomization => {
-                if let Some(replacement) = self.state.customized_replacement() {
-                    self.state.set_current_resolving(Confirmation::Replace(
-                        replacement,
-                    ));
-                }
+                self.confirm_customization();
             }
         }
     }
@@ -337,16 +348,16 @@ impl<'a> Resolver<'a> {
                 .unwrap();
 
             if let Some(replacement) = replacements.get(selection) {
-                let new_file_stem = replacement.new_file_stem.clone();
-                self.state.customize(new_file_stem);
-
-                self.confirm_customization();
+                self.state.customize(replacement.new_file_stem.clone());
+                self.action = Some(Action::ConfirmCustomization);
             }
         }
     }
 
-    fn customize(&mut self) {
+    fn customize(&mut self, file_stem: String) {
         use dialoguer::Input;
+
+        self.state.customize(file_stem.clone());
 
         if let Some(replacement) = self.state.customized_replacement() {
             let new_file_stem: String = Input::with_theme(&self.ui.theme)
@@ -356,7 +367,7 @@ impl<'a> Resolver<'a> {
                 .unwrap();
 
             self.state.customize(new_file_stem);
-            self.confirm_customization();
+            self.action = Some(Action::ConfirmCustomization);
         }
     }
 
@@ -375,21 +386,11 @@ impl<'a> Resolver<'a> {
                 .interact()
                 .unwrap();
 
-            match selection {
-                0 => {
-                    self.state.set_current_resolving(Confirmation::Replace(
-                        replacement,
-                    ));
-                }
-                1 => {
-                    self.state.cancel_customize();
-                }
-                2 => {
-                    self.customize();
-                }
-                wtf => {
-                    log::warn!("Unknown selection {:?}", wtf);
-                }
+            self.action = match selection {
+                0 => Some(Action::Replace(replacement)),
+                1 => Some(Action::Cancel),
+                2 => Some(Action::Customize(replacement.new_file_stem.clone())),
+                _ => None,
             }
         }
     }
