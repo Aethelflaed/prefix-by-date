@@ -85,7 +85,7 @@ impl Application {
         self.ui.process(&self.matchers, self.arguments.paths())
     }
 
-    pub fn add_pattern_matcher(&mut self, pattern: Pattern) {
+    fn add_pattern_matcher(&mut self, pattern: Pattern) {
         if pattern.time() == self.arguments.time()
             && !RESERVED_MATCHER_NAMES.contains(&pattern.name())
         {
@@ -93,7 +93,7 @@ impl Application {
         }
     }
 
-    pub fn add_matcher<M: Matcher + 'static>(&mut self, matcher: M) {
+    fn add_matcher<M: Matcher + 'static>(&mut self, matcher: M) {
         if !self.matchers.iter().any(|m| m.name() == matcher.name()) {
             self.matchers.push(Box::new(matcher));
         }
@@ -137,67 +137,7 @@ const RESERVED_MATCHER_NAMES: [&str; 3] = [
 #[cfg(test)]
 mod tests {
     use super::*;
-    use assert_fs::{fixture::FileWriteStr, fixture::PathChild, TempDir};
     use pretty_assertions::assert_eq;
-    use temp_env::with_var;
-
-    fn with_config<T, R>(function: T) -> R
-    where
-        T: FnOnce() -> R,
-    {
-        let temp = TempDir::new().unwrap();
-        let result = with_var(
-            "PREFIX_BY_DATE_CONFIG",
-            Some(temp.path().as_os_str()),
-            || {
-                temp.child("config.toml")
-                    .write_str(
-                        r#"
-[matchers.whatsapp_time]
-regex = """
-  [A-Z]+-
-  (?<year>\\d{4})
-  (?<month>\\d{2})
-  (?<day>\\d{2})
-  (?<hour>\\d{2})
-  (?<min>\\d{2})
-  (?<sec>\\d{2})
-  -
-  (?<rest>.+)
-"""
-time = true
-
-[matchers.whatsapp]
-regex = """
-  [A-Z]+-
-  (?<year>\\d{4})
-  (?<month>\\d{2})
-  (?<day>\\d{2})
-  -
-  (?<rest>.+)
-"""
-
-[matchers.cic]
-regex = """
-  (?<rest>.+)
-  \\s+au\\s+
-  (?<year>\\d{4})
-  -
-  (?<month>\\d{2})
-  -
-  (?<day>\\d{2})
-"""
-"#,
-                    )
-                    .unwrap();
-
-                function()
-            },
-        );
-        temp.close().unwrap();
-
-        return result;
-    }
 
     #[test]
     fn add_matcher_with_same_name() {
@@ -209,5 +149,53 @@ regex = """
 
         app.add_matcher(PredeterminedDate::default());
         assert_eq!(1, app.matchers.len());
+    }
+
+    mod add_pattern_matcher {
+        use super::*;
+        use pretty_assertions::assert_eq;
+
+        #[test]
+        fn refuse_reserved_matcher_names() {
+            let mut app = Application::default();
+
+            // Test failure cases
+            for name in RESERVED_MATCHER_NAMES {
+                app.add_pattern_matcher(
+                    Pattern::builder().regex(".").name(name).build().unwrap(),
+                );
+                assert_eq!(0, app.matchers.len());
+            }
+
+            // And yet, it works
+            app.add_pattern_matcher(
+                Pattern::builder().regex(".").name("foo").build().unwrap(),
+            );
+            assert_eq!(1, app.matchers.len());
+        }
+
+        #[test]
+        fn refuse_different_time_values() {
+            let mut app = Application::default();
+
+            // Test failure cases
+            app.arguments.time = false;
+            app.add_pattern_matcher(
+                Pattern::builder().regex(".").name("foo").time(true).build().unwrap(),
+            );
+            assert_eq!(0, app.matchers.len());
+
+            app.arguments.time = true;
+            app.add_pattern_matcher(
+                Pattern::builder().regex(".").name("foo").time(false).build().unwrap(),
+            );
+            assert_eq!(0, app.matchers.len());
+
+            // And yet, it works
+            app.add_pattern_matcher(
+                Pattern::builder().regex(".").name("foo").time(true).build().unwrap(),
+            );
+            assert_eq!(1, app.matchers.len());
+        }
     }
 }

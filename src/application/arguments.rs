@@ -7,7 +7,7 @@ pub struct Arguments {
     /// Command-line interface arguments
     cli: Cli,
 
-    time: bool,
+    pub(in crate::application) time: bool,
     default_date_format: String,
     default_date_time_format: String,
 
@@ -192,8 +192,33 @@ fn config_home() -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use assert_fs::{fixture::PathCopy, TempDir};
     use pretty_assertions::assert_eq;
     use temp_env::with_var;
+
+    fn fixtures_path() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures")
+    }
+
+    fn with_config<T, R>(function: T) -> R
+    where
+        T: FnOnce() -> R,
+    {
+        let temp = TempDir::new().unwrap();
+        let result = with_var(
+            "PREFIX_BY_DATE_CONFIG",
+            Some(temp.path().as_os_str()),
+            || {
+                temp.copy_from(fixtures_path(), &["config.toml"]).unwrap();
+
+                function()
+            },
+        );
+
+        temp.close().unwrap();
+
+        return result;
+    }
 
     #[test]
     fn config_home_default() {
