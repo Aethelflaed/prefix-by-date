@@ -1,33 +1,22 @@
 # Specify whether we should prefix by date and time (true) or just by date
 # (false)
-# time = false
+time = true
 
 # Configure the default format for the two possible values of `time`
 [default_format]
-# date = "%Y-%m-%d"
-# date_time = "%Y-%m-%d %Hh%Mm%S"
+date = "%m-%d %Y"
+date_time = "%m-%d %Hh%Mm%S %Y"
 
 # Enable/disable the metadata matchers
 [matchers.metadata]
-# created = false
-# modified = false
+created = true
+modified = true
 
 # Enable/disable pseudo-matchers that work with pre-determined date
 [matchers.predetermined_date]
-# today = false
+today = true
 
 # All values defined under matchers.patterns.* configure a pattern matcher
-
-[matchers.patterns.cic]
-regex = """
-  \\A
-  (?<rest>.+)
-  \\s+au\\s+
-  (?<year>\\d{4})[-]?
-  (?<month>\\d{2})[-]?
-  (?<day>\\d{2})
-  \\z
-"""
 
 [matchers.patterns.date_suffix]
 regex = """
@@ -38,32 +27,6 @@ regex = """
   (?<day>\\d{2})
   \\z
 """
-
-[matchers.patterns.date_infix]
-regex = """
-  \\A
-  (?<start>.+)[\\ _-]
-  (?<year>\\d{4})[-]?
-  (?<month>\\d{2})[-]?
-  (?<day>\\d{2})[\\ _-]
-  (?<end>.+)
-  \\z
-"""
-
-[matchers.patterns.date_time_infix]
-regex = """
-  \\A
-  (?<start>.+)[\\ _-]
-  (?<year>\\d{4})[-]?
-  (?<month>\\d{2})[-]?
-  (?<day>\\d{2})[\\ _-]
-  (?<hour>\\d{2})[h]?
-  (?<min>\\d{2})[m]?
-  (?<sec>\\d{2})[s\\ _-]?
-  (?<end>.+)
-  \\z
-"""
-time = true
 
 [matchers.patterns.date_time_suffix]
 regex = """

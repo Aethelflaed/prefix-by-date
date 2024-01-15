@@ -47,6 +47,11 @@ impl Application {
 
         self.setup_log()?;
         log::set_max_level(self.arguments.log_level_filter());
+
+        while let Some(error) = self.arguments.init_errors.pop_front() {
+            log::info!("Init error: {}", error);
+        }
+
         log::debug!("Arguments: {:?}", self.arguments);
 
         let format = self.arguments.default_format().to_string();
@@ -181,19 +186,34 @@ mod tests {
             // Test failure cases
             app.arguments.time = false;
             app.add_pattern_matcher(
-                Pattern::builder().regex(".").name("foo").time(true).build().unwrap(),
+                Pattern::builder()
+                    .regex(".")
+                    .name("foo")
+                    .time(true)
+                    .build()
+                    .unwrap(),
             );
             assert_eq!(0, app.matchers.len());
 
             app.arguments.time = true;
             app.add_pattern_matcher(
-                Pattern::builder().regex(".").name("foo").time(false).build().unwrap(),
+                Pattern::builder()
+                    .regex(".")
+                    .name("foo")
+                    .time(false)
+                    .build()
+                    .unwrap(),
             );
             assert_eq!(0, app.matchers.len());
 
             // And yet, it works
             app.add_pattern_matcher(
-                Pattern::builder().regex(".").name("foo").time(true).build().unwrap(),
+                Pattern::builder()
+                    .regex(".")
+                    .name("foo")
+                    .time(true)
+                    .build()
+                    .unwrap(),
             );
             assert_eq!(1, app.matchers.len());
         }
