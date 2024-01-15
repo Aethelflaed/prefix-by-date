@@ -6,10 +6,6 @@ use crate::ui;
 
 use std::path::PathBuf;
 
-use env_logger::Builder;
-
-type LogResult = std::result::Result<(), log::SetLoggerError>;
-
 mod processing;
 mod window;
 
@@ -22,10 +18,6 @@ impl Gui {
 }
 
 impl ui::Interface for Gui {
-    fn setup_logger(&mut self, logger_builder: &mut Builder) -> LogResult {
-        logger_builder.try_init()
-    }
-
     fn process(
         &mut self,
         matchers: &[Box<dyn Matcher>],

@@ -28,7 +28,9 @@ pub use gui::Gui;
 pub use NonInteractive as Gui;
 
 pub trait Interface: Send {
-    fn setup_logger(&mut self, logger_builder: &mut Builder) -> LogResult;
+    fn setup_logger(&mut self, logger_builder: &mut Builder) -> LogResult {
+        logger_builder.try_init()
+    }
 
     fn process(
         &mut self,
@@ -62,10 +64,6 @@ impl NonInteractive {
 }
 
 impl Interface for NonInteractive {
-    fn setup_logger(&mut self, logger_builder: &mut Builder) -> LogResult {
-        logger_builder.try_init()
-    }
-
     fn process(
         &mut self,
         matchers: &[Box<dyn Matcher>],
