@@ -45,24 +45,25 @@ pub const DEFAULT_DATE_TIME_FORMAT: &str = "%Y-%m-%d %Hh%Mm%S";
 
 impl Arguments {
     pub fn parse() -> Self {
-        Self::parse_from(std::env::args_os())
+        match Self::try_parse_from(std::env::args_os()) {
+            Ok(args) => args,
+            Err(error) => error.exit(),
+        }
     }
 
-    fn parse_from<I, T>(iter: I) -> Self
+    fn try_parse_from<I, T>(iter: I) -> std::result::Result<Self, clap::Error>
     where
         I: IntoIterator<Item = T>,
         T: Into<OsString> + Clone,
     {
         use clap::Parser;
 
-        let mut instance = Self {
-            cli: Cli::parse_from(iter),
-            ..Arguments::default()
-        };
+        let mut instance = Arguments::default();
+        instance.cli.try_update_from(iter)?;
         instance.apply_config("config.toml");
         instance.apply_cli();
 
-        instance
+        Ok(instance)
     }
 
     pub fn log_level_filter(&self) -> log::LevelFilter {
@@ -294,29 +295,40 @@ mod tests {
     }
 
     #[test]
-    fn parse_from() {
+    fn invalid_cli_args() {
+        assert!(matches!(
+            Arguments::try_parse_from(&["arg0", "--foo"]),
+            Err(_)
+        ));
+    }
+
+    #[test]
+    fn try_parse_from() {
         let arguments = with_config(|| Arguments::parse());
         assert!(!arguments.time());
 
-        let arguments =
-            with_config(|| Arguments::parse_from(&["arg0", "--time"]));
+        let arguments = with_config(|| {
+            Arguments::try_parse_from(&["arg0", "--time"]).unwrap()
+        });
         assert!(arguments.time());
 
-        let arguments =
-            with_config(|| Arguments::parse_from(&["arg0", "--no-time"]));
+        let arguments = with_config(|| {
+            Arguments::try_parse_from(&["arg0", "--no-time"]).unwrap()
+        });
         assert!(!arguments.time());
 
-        let arguments =
-            with_config(|| Arguments::parse_from(&["arg0", "--today"]));
+        let arguments = with_config(|| {
+            Arguments::try_parse_from(&["arg0", "--today"]).unwrap()
+        });
         assert!(arguments.today());
 
         let arguments = with_config(|| {
-            Arguments::parse_from(&["arg0", "--metadata", "both"])
+            Arguments::try_parse_from(&["arg0", "--metadata", "both"]).unwrap()
         });
         assert!(matches!(arguments.metadata(), Metadata::Both));
 
         let arguments = with_config(|| {
-            Arguments::parse_from(&["arg0", "--metadata=created"])
+            Arguments::try_parse_from(&["arg0", "--metadata=created"]).unwrap()
         });
         assert!(matches!(arguments.metadata(), Metadata::Created));
     }
@@ -324,7 +336,12 @@ mod tests {
     #[test]
     fn parse_with_cli_config() {
         let mut arguments = with_config_dir(|dir| {
-            Arguments::parse_from(&["arg0", "-C", dir.path().to_str().unwrap()])
+            Arguments::try_parse_from(&[
+                "arg0",
+                "-C",
+                dir.path().to_str().unwrap(),
+            ])
+            .unwrap()
         });
 
         match arguments.init_errors.pop_front() {
@@ -343,8 +360,9 @@ mod tests {
 
     #[test]
     fn paths() {
-        let arguments =
-            with_config(|| Arguments::parse_from(&["arg0", "foo", "bar"]));
+        let arguments = with_config(|| {
+            Arguments::try_parse_from(&["arg0", "foo", "bar"]).unwrap()
+        });
 
         assert_eq!(
             [PathBuf::from("foo"), PathBuf::from("bar"),],
