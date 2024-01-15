@@ -29,6 +29,7 @@ impl Metadata {
     }
 }
 
+/// Prefix files by date
 #[derive(Default, Debug, Parser)]
 #[command(version)]
 pub struct Cli {
