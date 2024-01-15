@@ -2,6 +2,7 @@ use crate::application::cli::{Cli, Interactive, Metadata};
 use crate::application::Error;
 
 use std::collections::VecDeque;
+use std::ffi::OsString;
 use std::path::PathBuf;
 
 use toml::{Table, Value};
@@ -44,10 +45,18 @@ pub const DEFAULT_DATE_TIME_FORMAT: &str = "%Y-%m-%d %Hh%Mm%S";
 
 impl Arguments {
     pub fn parse() -> Self {
+        Self::parse_from(std::env::args_os())
+    }
+
+    fn parse_from<I, T>(iter: I) -> Self
+    where
+        I: IntoIterator<Item = T>,
+        T: Into<OsString> + Clone,
+    {
         use clap::Parser;
 
         let mut instance = Self {
-            cli: Cli::parse(),
+            cli: Cli::parse_from(iter),
             ..Arguments::default()
         };
         instance.apply_config("config.toml");
@@ -241,6 +250,13 @@ mod tests {
         })
     }
 
+    fn with_config<T, R>(function: T) -> R
+    where
+        T: FnOnce() -> R,
+    {
+        with_config_copied(&["config.toml"], function)
+    }
+
     fn arguments_with_config(config: &str) -> Arguments {
         let mut arguments = Arguments::default();
 
@@ -249,10 +265,6 @@ mod tests {
         });
 
         arguments
-    }
-
-    fn arguments_with_default_config() -> Arguments {
-        arguments_with_config("config.toml")
     }
 
     #[test]
@@ -281,6 +293,65 @@ mod tests {
         assert_eq!(DEFAULT_DATE_TIME_FORMAT, arguments.default_format());
     }
 
+    #[test]
+    fn parse_from() {
+        let arguments = with_config(|| Arguments::parse());
+        assert!(!arguments.time());
+
+        let arguments =
+            with_config(|| Arguments::parse_from(&["arg0", "--time"]));
+        assert!(arguments.time());
+
+        let arguments =
+            with_config(|| Arguments::parse_from(&["arg0", "--no-time"]));
+        assert!(!arguments.time());
+
+        let arguments =
+            with_config(|| Arguments::parse_from(&["arg0", "--today"]));
+        assert!(arguments.today());
+
+        let arguments = with_config(|| {
+            Arguments::parse_from(&["arg0", "--metadata", "both"])
+        });
+        assert!(matches!(arguments.metadata(), Metadata::Both));
+
+        let arguments = with_config(|| {
+            Arguments::parse_from(&["arg0", "--metadata=created"])
+        });
+        assert!(matches!(arguments.metadata(), Metadata::Created));
+    }
+
+    #[test]
+    fn parse_with_cli_config() {
+        let mut arguments = with_config_dir(|dir| {
+            Arguments::parse_from(&["arg0", "-C", dir.path().to_str().unwrap()])
+        });
+
+        match arguments.init_errors.pop_front() {
+            Some(Error::Custom(string)) => {
+                assert!(
+                    string.starts_with("Unable to read config file"),
+                    "String predicate failed for: {string:?}"
+                );
+            }
+            Some(error) => assert!(false, "Unknown error: {error:?}"),
+            None => {
+                assert!(false, "An error was expected but none was received")
+            }
+        };
+    }
+
+    #[test]
+    fn paths() {
+        let arguments =
+            with_config(|| Arguments::parse_from(&["arg0", "foo", "bar"]));
+
+        assert_eq!(
+            [PathBuf::from("foo"), PathBuf::from("bar"),],
+            arguments.paths()
+        );
+    }
+
     mod apply_config {
         use super::*;
         use pretty_assertions::assert_eq;
@@ -301,7 +372,10 @@ mod tests {
                     );
                 }
                 Some(error) => assert!(false, "Unknown error: {error:?}"),
-                None => assert!(false, "An error was expected but none was received"),
+                None => assert!(
+                    false,
+                    "An error was expected but none was received"
+                ),
             };
         }
 
@@ -317,7 +391,10 @@ mod tests {
                     );
                 }
                 Some(error) => assert!(false, "Unknown error: {error:?}"),
-                None => assert!(false, "An error was expected but none was received"),
+                None => assert!(
+                    false,
+                    "An error was expected but none was received"
+                ),
             };
         }
 
@@ -328,7 +405,10 @@ mod tests {
             assert!(arguments.init_errors.is_empty());
             assert_eq!(false, arguments.time());
             assert_eq!(DEFAULT_DATE_FORMAT, arguments.default_date_format);
-            assert_eq!(DEFAULT_DATE_TIME_FORMAT, arguments.default_date_time_format);
+            assert_eq!(
+                DEFAULT_DATE_TIME_FORMAT,
+                arguments.default_date_time_format
+            );
             assert_eq!(false, arguments.today());
             assert!(matches!(arguments.metadata(), Metadata::None));
             assert!(arguments.patterns().is_empty());

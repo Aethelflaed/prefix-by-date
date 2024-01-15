@@ -10,10 +10,10 @@ install_debug: files/debug.desktop files/config.toml
 clean_coverage:
 	rm -rf target/coverage
 
+test_coverage: export CARGO_INCREMENTAL = 0
+test_coverage: export RUSTFLAGS = -Cinstrument-coverage
+test_coverage: export LLVM_PROFILE_FILE = target/coverage/cargo-test-%p-%m.profraw
 test_coverage: clean_coverage
-	CARGO_INCREMENTAL=0 \
-		RUSTFLAGS='-Cinstrument-coverage' \
-		LLVM_PROFILE_FILE='target/coverage/cargo-test-%p-%m.profraw' \
 		cargo test
 
 coverage: test_coverage
