@@ -123,9 +123,7 @@ impl Arguments {
 
         match std::fs::read_to_string(path) {
             Ok(content) => match content.parse::<Table>() {
-                Ok(config_table) => {
-                    return self.apply_config_table(config_table)
-                }
+                Ok(config_table) => self.apply_config_table(config_table),
                 Err(e) => self.init_errors.push_back(
                     format!("Unable to parse config file: {:?}", e).into(),
                 ),

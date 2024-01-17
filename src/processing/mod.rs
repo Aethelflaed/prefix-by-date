@@ -19,7 +19,7 @@ where
     T: Communication,
 {
     matchers: Vec<ProcessingMatcher>,
-    paths: Vec<PathBuf>,
+    paths: &'a [PathBuf],
     interface: &'a T,
     reporters: Vec<Box<dyn Reporter>>,
 }
@@ -67,11 +67,11 @@ where
     pub fn new(
         interface: &'a T,
         matchers: &[Box<dyn Matcher>],
-        paths: &[PathBuf],
+        paths: &'a [PathBuf],
     ) -> Self {
         Self {
             matchers: matchers.iter().cloned().map(From::<_>::from).collect(),
-            paths: paths.to_owned(),
+            paths,
             interface,
             reporters: vec![
                 Box::<log_reporter::LogReporter>::default(),
@@ -84,9 +84,7 @@ where
     pub fn run(&mut self) -> Result<()> {
         self.report_setup(self.paths.len());
 
-        let paths = self.paths.clone();
-
-        for path in &paths {
+        for path in self.paths {
             self.report_processing(path);
 
             match self
