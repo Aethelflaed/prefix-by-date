@@ -20,7 +20,7 @@ pub struct Arguments {
     today: bool,
     metadata: Metadata,
 
-    patterns: Table,
+    pub(in crate::application) patterns: Option<Table>,
 
     pub(in crate::application) init_errors: VecDeque<Error>,
 }
@@ -34,7 +34,7 @@ impl Default for Arguments {
             default_date_time_format: String::from(DEFAULT_DATE_TIME_FORMAT),
             today: false,
             metadata: Metadata::default(),
-            patterns: Table::default(),
+            patterns: None,
             init_errors: VecDeque::<Error>::default(),
         }
     }
@@ -97,10 +97,6 @@ impl Arguments {
         self.metadata
     }
 
-    pub fn patterns(&self) -> &Table {
-        &self.patterns
-    }
-
     pub fn paths(&self) -> &[PathBuf] {
         &self.cli.paths
     }
@@ -134,28 +130,27 @@ impl Arguments {
         }
     }
 
-    fn apply_config_table(&mut self, config_table: Table) {
+    fn apply_config_table(&mut self, mut config_table: Table) {
         if let Some(value) = config_table.get("time").and_then(Value::as_bool) {
             self.time = value;
         }
 
-        if let Some(table) =
-            config_table.get("default_format").and_then(Value::as_table)
+        if let Some(Value::Table(mut formats)) =
+            config_table.remove("default_format")
         {
-            if let Some(format) = table.get("date").and_then(Value::as_str) {
-                self.default_date_format = format.to_string();
+            if let Some(Value::String(format)) = formats.remove("date") {
+                self.default_date_format = format;
             }
-            if let Some(format) = table.get("date_time").and_then(Value::as_str)
-            {
-                self.default_date_time_format = format.to_string();
+            if let Some(Value::String(format)) = formats.remove("date_time") {
+                self.default_date_time_format = format;
             }
         }
 
-        if let Some(matchers) =
-            config_table.get("matchers").and_then(Value::as_table)
+        if let Some(Value::Table(mut matchers)) =
+            config_table.remove("matchers")
         {
-            if let Some(predet) =
-                matchers.get("predetermined_date").and_then(Value::as_table)
+            if let Some(Value::Table(predet)) =
+                matchers.remove("predetermined_date")
             {
                 if let Some(today) =
                     predet.get("today").and_then(Value::as_bool)
@@ -164,9 +159,7 @@ impl Arguments {
                 }
             }
 
-            if let Some(metadata) =
-                matchers.get("metadata").and_then(Value::as_table)
-            {
+            if let Some(Value::Table(metadata)) = matchers.remove("metadata") {
                 let created = metadata.get("created").and_then(Value::as_bool);
                 let modified =
                     metadata.get("modified").and_then(Value::as_bool);
@@ -191,10 +184,8 @@ impl Arguments {
                 }
             }
 
-            if let Some(patterns) =
-                matchers.get("patterns").and_then(Value::as_table)
-            {
-                self.patterns = patterns.clone();
+            if let Some(Value::Table(patterns)) = matchers.remove("patterns") {
+                self.patterns = Some(patterns);
             }
         }
     }

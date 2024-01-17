@@ -60,16 +60,17 @@ impl Application {
             self.add_matcher(PredeterminedDate::new(format.as_str()));
         }
 
-        let patterns = self.arguments.patterns().clone();
-        patterns.iter().for_each(|(name, value)| {
-            if let toml::Value::Table(table) = value {
-                if let Some(pattern) =
-                    Pattern::deserialize(name, table, format.as_str())
-                {
-                    self.add_pattern_matcher(pattern);
+        if let Some(patterns) = self.arguments.patterns.take() {
+            patterns.iter().for_each(|(name, value)| {
+                if let toml::Value::Table(table) = value {
+                    if let Some(pattern) =
+                        Pattern::deserialize(name, table, format.as_str())
+                    {
+                        self.add_pattern_matcher(pattern);
+                    }
                 }
-            }
-        });
+            });
+        }
 
         if self.arguments.metadata().created() {
             self.add_matcher(Metadata::new_created(format.as_str()));
