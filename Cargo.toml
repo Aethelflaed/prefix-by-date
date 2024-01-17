@@ -1,8 +1,11 @@
 [package]
 name = "prefix-by-date"
-description = "Prefix given files by a date"
+description = "Prefix files by date"
 version = "0.1.0"
 edition = "2021"
+license = "MIT"
+authors = ["Jaffa Geoffroy Planquart"]
+repository = "https://codeberg.org/Jaffa/prefix-by-date"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
