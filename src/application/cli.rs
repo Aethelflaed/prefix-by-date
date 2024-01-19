@@ -89,7 +89,7 @@ impl Cli {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test::{test, assert_eq};
+    use crate::test::{assert_eq, test};
 
     #[test]
     fn time_and_no_time() {

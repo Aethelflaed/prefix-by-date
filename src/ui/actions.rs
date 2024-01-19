@@ -154,7 +154,7 @@ pub fn shortcut_for(action: &Action) -> Option<char> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test::{test, assert_eq};
+    use crate::test::{assert_eq, test};
 
     #[test]
     fn actions_from_current_none() {

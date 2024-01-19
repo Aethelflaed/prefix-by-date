@@ -74,7 +74,7 @@ impl Matcher for PredeterminedDate {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test::{test, assert_eq};
+    use crate::test::{assert_eq, test};
 
     use chrono::TimeZone;
     use std::path::PathBuf;

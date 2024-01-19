@@ -239,7 +239,7 @@ impl PatternBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test::{test, assert_eq};
+    use crate::test::{assert_eq, test};
 
     use std::path::PathBuf;
 
@@ -447,7 +447,7 @@ mod tests {
 
     mod deserialize {
         use super::*;
-        use crate::test::{test, assert_eq};
+        use crate::test::{assert_eq, test};
         use toml::Table;
 
         #[test]

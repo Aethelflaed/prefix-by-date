@@ -143,7 +143,7 @@ const RESERVED_MATCHER_NAMES: [&str; 3] = [
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test::{test, assert_eq};
+    use crate::test::{assert_eq, test};
 
     #[test]
     fn add_matcher_with_same_name() {
@@ -159,7 +159,7 @@ mod tests {
 
     mod add_pattern_matcher {
         use super::*;
-        use crate::test::{test, assert_eq};
+        use crate::test::{assert_eq, test};
 
         #[test]
         fn refuse_reserved_matcher_names() {

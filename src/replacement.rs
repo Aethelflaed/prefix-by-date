@@ -102,7 +102,7 @@ impl fmt::Display for Replacement {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test::{test, assert_eq};
+    use crate::test::{assert_eq, test};
 
     fn path() -> PathBuf {
         PathBuf::from("/this/is/a/test.pdf")
