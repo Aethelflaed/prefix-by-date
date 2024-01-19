@@ -203,8 +203,8 @@ fn config_home() -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test::{test, assert_eq};
     use assert_fs::{fixture::PathCopy, TempDir};
-    use pretty_assertions::assert_eq;
     use temp_env::with_var;
 
     fn fixtures_path() -> PathBuf {
@@ -361,7 +361,7 @@ mod tests {
 
     mod apply_config {
         use super::*;
-        use pretty_assertions::assert_eq;
+        use crate::test::{test, assert_eq};
 
         #[test]
         fn fails_silently_on_missing_config() {

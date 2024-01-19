@@ -291,7 +291,7 @@ impl std::fmt::Display for ProcessingResult {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pretty_assertions::assert_eq;
+    use crate::test::{test, assert_eq};
 
     fn path() -> PathBuf {
         PathBuf::from("/this/is/a/test")

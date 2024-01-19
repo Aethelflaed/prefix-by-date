@@ -80,8 +80,8 @@ impl Matcher for Metadata {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test::{test, assert_eq, assert_ne};
     use assert_fs::fixture::{FileTouch, NamedTempFile};
-    use pretty_assertions::{assert_eq, assert_ne};
 
     use std::path::Path;
     use std::thread::sleep;

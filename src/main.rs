@@ -4,6 +4,9 @@ mod processing;
 mod replacement;
 mod ui;
 
+#[cfg(test)]
+mod test;
+
 use application::{Application, Result};
 
 fn main() -> Result<()> {

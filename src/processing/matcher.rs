@@ -52,6 +52,7 @@ impl<'a> ProcessingMatcher<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test::test;
 
     use std::path::PathBuf;
 
