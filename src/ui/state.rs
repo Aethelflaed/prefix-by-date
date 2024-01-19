@@ -51,11 +51,10 @@ impl State {
             return;
         }
 
-        let mut change = Change::new(replacement.clone());
         let path_buf = replacement.path();
         let path = path_buf.as_path();
 
-        change.alternatives = matchers
+        let alternatives = matchers
             .iter()
             .filter_map(|matcher| {
                 matcher.check(path).and_then(|rep| {
@@ -68,6 +67,10 @@ impl State {
                 })
             })
             .collect();
+
+        let mut change = Change::new(replacement);
+        change.alternatives = alternatives;
+
         self.current = Current::Confirm(change);
         self.actions = Action::determine_for(&self.current);
     }

@@ -218,7 +218,7 @@ impl PatternBuilder {
         self.build()
     }
 
-    pub fn build(&self) -> Option<Pattern> {
+    pub fn build(&mut self) -> Option<Pattern> {
         RegexBuilder::new(&self.regex)
             .ignore_whitespace(true)
             .build()
@@ -227,10 +227,10 @@ impl PatternBuilder {
                 regex,
                 name: self
                     .name
-                    .clone()
+                    .take()
                     .expect("Name is mandatory to build pattern"),
-                delimiter: self.delimiter.clone().unwrap_or(" ".into()),
-                format: self.format.clone(),
+                delimiter: self.delimiter.take().unwrap_or(" ".into()),
+                format: std::mem::take(&mut self.format),
                 time: self.time.unwrap_or(false),
             })
     }

@@ -4,23 +4,23 @@ use crate::replacement::Replacement;
 use std::path::Path;
 
 #[derive(Clone)]
-pub struct ProcessingMatcher {
+pub struct ProcessingMatcher<'a> {
     confirmed: bool,
     ignored: bool,
-    matcher: Box<dyn Matcher>,
+    matcher: &'a dyn Matcher,
 }
 
-impl From<Box<dyn Matcher>> for ProcessingMatcher {
-    fn from(matcher: Box<dyn Matcher>) -> Self {
+impl<'a> From<&'a Box<dyn Matcher>> for ProcessingMatcher<'a> {
+    fn from(matcher: &'a Box<dyn Matcher>) -> Self {
         Self {
             confirmed: matcher.auto_accept(),
             ignored: false,
-            matcher,
+            matcher: matcher.as_ref(),
         }
     }
 }
 
-impl ProcessingMatcher {
+impl<'a> ProcessingMatcher<'a> {
     pub fn check(&self, path: &Path) -> Option<Replacement> {
         self.matcher.check(path)
     }
@@ -57,22 +57,18 @@ mod tests {
 
     use crate::matcher::{Pattern, PredeterminedDate};
 
-    fn matcher() -> ProcessingMatcher {
-        ProcessingMatcher::from(Box::<Pattern>::default() as Box<dyn Matcher>)
-    }
-
     #[test]
     fn auto_accept_matcher_is_confirmed() {
-        let matcher = ProcessingMatcher::from(
-            Box::<PredeterminedDate>::default() as Box<dyn Matcher>,
-        );
+        let matcher: Box<dyn Matcher> = Box::<PredeterminedDate>::default();
+        let processing_matcher = ProcessingMatcher::from(&matcher);
 
-        assert!(matcher.confirmed());
+        assert!(processing_matcher.confirmed());
     }
 
     #[test]
     fn confirm() {
-        let mut processing_matcher = matcher();
+        let matcher: Box<dyn Matcher> = Box::<Pattern>::default();
+        let mut processing_matcher = ProcessingMatcher::from(&matcher);
 
         assert!(!processing_matcher.confirmed());
         processing_matcher.confirm();
@@ -81,7 +77,8 @@ mod tests {
 
     #[test]
     fn ignore() {
-        let mut processing_matcher = matcher();
+        let matcher: Box<dyn Matcher> = Box::<Pattern>::default();
+        let mut processing_matcher = ProcessingMatcher::from(&matcher);
 
         assert!(!processing_matcher.ignored());
         processing_matcher.ignore();
@@ -90,7 +87,8 @@ mod tests {
 
     #[test]
     fn check() {
-        let processing_matcher = matcher();
+        let matcher: Box<dyn Matcher> = Box::<Pattern>::default();
+        let processing_matcher = ProcessingMatcher::from(&matcher);
         let path = PathBuf::from("foo");
 
         assert!(processing_matcher.check(&path).is_none());

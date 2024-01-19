@@ -418,7 +418,7 @@ mod tests {
             );
             assert_eq!(false, arguments.today());
             assert!(matches!(arguments.metadata(), Metadata::None));
-            assert!(arguments.patterns().is_empty());
+            assert!(arguments.patterns.is_none());
         }
 
         #[test]
@@ -447,7 +447,7 @@ mod tests {
             assert_eq!("%m-%d %Hh%Mm%S %Y", arguments.default_date_time_format);
             assert_eq!(true, arguments.today());
             assert!(matches!(arguments.metadata(), Metadata::Both));
-            assert_eq!(2, arguments.patterns().len());
+            assert_eq!(2, arguments.patterns.unwrap().len());
         }
     }
 }

@@ -18,7 +18,7 @@ pub struct Processing<'a, T>
 where
     T: Communication,
 {
-    matchers: Vec<ProcessingMatcher>,
+    matchers: Vec<ProcessingMatcher<'a>>,
     paths: &'a [PathBuf],
     interface: &'a T,
     reporters: Vec<Box<dyn Reporter>>,
@@ -66,11 +66,11 @@ where
 {
     pub fn new(
         interface: &'a T,
-        matchers: &[Box<dyn Matcher>],
+        matchers: &'a [Box<dyn Matcher>],
         paths: &'a [PathBuf],
     ) -> Self {
         Self {
-            matchers: matchers.iter().cloned().map(From::<_>::from).collect(),
+            matchers: matchers.iter().map(From::<_>::from).collect(),
             paths,
             interface,
             reporters: vec![
@@ -117,7 +117,11 @@ where
 
         let mut found = false;
 
-        for matcher in self.matchers_mut() {
+        for matcher in self
+            .matchers
+            .iter_mut()
+            .filter(|matcher| !matcher.ignored())
+        {
             if let Some(replacement) = matcher.check(path) {
                 found = true;
                 if matcher.confirmed() {
@@ -151,15 +155,6 @@ where
         } else {
             interface.rescue(Error::no_match(path))
         }
-    }
-
-    /// Return all non-ignored matchers
-    fn matchers_mut(
-        &mut self,
-    ) -> impl Iterator<Item = &mut ProcessingMatcher> + '_ {
-        self.matchers
-            .iter_mut()
-            .filter(|matcher| !matcher.ignored())
     }
 
     fn report_setup(&self, count: usize) {

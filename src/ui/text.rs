@@ -357,12 +357,13 @@ impl<'a> Resolver<'a> {
     fn customize(&mut self, file_stem: String) {
         use dialoguer::Input;
 
-        self.state.customize(file_stem.clone());
-
-        if let Some(replacement) = self.state.customized_replacement() {
+        if matches!(
+            self.state.current(),
+            Current::Confirm(_) | Current::Rescue(_)
+        ) {
             let new_file_stem: String = Input::with_theme(&self.ui.theme)
                 .with_prompt("New file name?")
-                .with_initial_text(replacement.new_file_stem)
+                .with_initial_text(file_stem)
                 .interact_text()
                 .unwrap();
 
