@@ -93,8 +93,7 @@ impl Communication for NonInteractive {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test::{matchers, with_temp_dir, test};
-    use crate::test::assert_fs::*;
+    use crate::test::{matchers, with_temp_dir, test, assert_fs::*};
     use predicates::prelude::*;
 
     #[test]

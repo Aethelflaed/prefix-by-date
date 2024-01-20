@@ -194,11 +194,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test::{matchers, test, with_temp_dir};
-    use assert_fs::{
-        assert::PathAssert,
-        fixture::{FileWriteStr, PathChild},
-    };
+    use crate::test::{matchers, test, with_temp_dir, assert_fs::*};
     use mockall::*;
 
     mock! {
@@ -276,9 +272,8 @@ mod tests {
         with_temp_dir(|temp| {
             let mut interface = MockInterface::new();
             let matchers = [matchers::weird_boxed()];
-            let child = temp.child("foo");
-            child.write_str("whatever").unwrap();
-            let path = child.path().to_path_buf();
+            let child = temp.existing_child("foo");
+            let path = child.to_path_buf();
             let paths = [path.clone()];
 
             let mut seq = Sequence::new();
@@ -318,9 +313,8 @@ mod tests {
         with_temp_dir(|temp| {
             let mut interface = MockInterface::new();
             let matchers = [matchers::weird_boxed()];
-            let child = temp.child("foo");
-            child.write_str("whatever").unwrap();
-            let path = child.path().to_path_buf();
+            let child = temp.existing_child("foo");
+            let path = child.to_path_buf();
             let paths = [path.clone()];
 
             let mut replacement = Replacement::try_from(child.path())?;
@@ -368,9 +362,8 @@ mod tests {
         with_temp_dir(|temp| {
             let mut interface = MockInterface::new();
             let matchers = [matchers::weird_boxed()];
-            let child = temp.child("foo");
-            child.write_str("whatever").unwrap();
-            let path = child.path().to_path_buf();
+            let child = temp.existing_child("foo");
+            let path = child.to_path_buf();
             let paths = [path.clone()];
 
             let replacement = Replacement::try_from(temp.child("bar").path())?;
@@ -413,13 +406,11 @@ mod tests {
             let mut interface = MockInterface::new();
             let matchers = [matchers::ymd_boxed()];
 
-            let child = temp.child("foo 20240120");
-            child.write_str("whatever").unwrap();
-            let path = child.path().to_path_buf();
+            let child = temp.existing_child("foo 20240120");
+            let path = child.to_path_buf();
 
-            let child2 = temp.child("bar 20240120");
-            child2.write_str("whatever").unwrap();
-            let path2 = child2.path().to_path_buf();
+            let child2 = temp.existing_child("bar 20240120");
+            let path2 = child2.to_path_buf();
 
             let paths = [path.clone(), path2.clone()];
 
@@ -491,13 +482,11 @@ mod tests {
             let mut interface = MockInterface::new();
             let matchers = [matchers::ymd_boxed()];
 
-            let child = temp.child("foo 20240120");
-            child.write_str("whatever").unwrap();
-            let path = child.path().to_path_buf();
+            let child = temp.existing_child("foo 20240120");
+            let path = child.to_path_buf();
 
-            let child2 = temp.child("bar 20240120");
-            child2.write_str("whatever").unwrap();
-            let path2 = child2.path().to_path_buf();
+            let child2 = temp.existing_child("bar 20240120");
+            let path2 = child2.to_path_buf();
 
             let paths = [path.clone(), path2.clone()];
 
@@ -562,9 +551,8 @@ mod tests {
         with_temp_dir(|temp| {
             let mut interface = MockInterface::new();
             let matchers = [matchers::ymd_boxed(), matchers::ymd_boxed()];
-            let child = temp.child("foo 20240120");
-            child.write_str("whatever").unwrap();
-            let path = child.path().to_path_buf();
+            let child = temp.existing_child("foo 20240120");
+            let path = child.to_path_buf();
             let paths = [path.clone()];
 
             let mut seq = Sequence::new();
@@ -604,9 +592,8 @@ mod tests {
         with_temp_dir(|temp| {
             let mut interface = MockInterface::new();
             let matchers = [matchers::ymd_boxed(), matchers::ymd_boxed()];
-            let child = temp.child("foo 20240120");
-            child.write_str("whatever").unwrap();
-            let path = child.path().to_path_buf();
+            let child = temp.existing_child("foo 20240120");
+            let path = child.to_path_buf();
             let paths = [path.clone()];
 
             let mut replacement = Replacement::try_from(child.path())?;
@@ -649,9 +636,8 @@ mod tests {
         with_temp_dir(|temp| {
             let mut interface = MockInterface::new();
             let matchers = [matchers::ymd_boxed()];
-            let child = temp.child("foo 20240120");
-            child.write_str("whatever").unwrap();
-            let path = child.path().to_path_buf();
+            let child = temp.existing_child("foo 20240120");
+            let path = child.to_path_buf();
             let paths = [path.clone(), path.clone()];
 
             let mut seq = Sequence::new();
@@ -707,9 +693,8 @@ mod tests {
         with_temp_dir(|temp| {
             let mut interface = MockInterface::new();
             let matchers = [matchers::ymd_boxed(), matchers::ymd_boxed()];
-            let child = temp.child("foo 20240120");
-            child.write_str("whatever").unwrap();
-            let path = child.path().to_path_buf();
+            let child = temp.existing_child("foo 20240120");
+            let path = child.to_path_buf();
             let paths = [path.clone(), path.clone()];
 
             let mut seq = Sequence::new();
@@ -750,9 +735,8 @@ mod tests {
         with_temp_dir(|temp| {
             let mut interface = MockInterface::new();
             let matchers = [matchers::ymd_boxed()];
-            let child = temp.child("foo 20240120");
-            child.write_str("whatever").unwrap();
-            let path = child.path().to_path_buf();
+            let child = temp.existing_child("foo 20240120");
+            let path = child.to_path_buf();
             let paths = [path.clone()];
 
             let mut replacement = Replacement::try_from(child.path())?;

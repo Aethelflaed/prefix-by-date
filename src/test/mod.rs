@@ -7,7 +7,6 @@ pub use pretty_assertions::{assert_eq, assert_ne};
 pub mod matchers;
 pub mod paths;
 pub mod assert_fs;
-pub mod prelude;
 
 pub fn with_temp_dir<F, R>(function: F) -> R
 where
