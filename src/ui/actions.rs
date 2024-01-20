@@ -367,6 +367,10 @@ mod tests {
         );
         assert_eq!(
             Err(()),
+            TryInto::<Confirmation>::try_into(Action::ConfirmCustomization)
+        );
+        assert_eq!(
+            Err(()),
             TryInto::<Confirmation>::try_into(Action::ViewAlternatives)
         );
         assert_eq!(Err(()), TryInto::<Confirmation>::try_into(Action::Cancel));

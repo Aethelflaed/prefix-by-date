@@ -89,3 +89,45 @@ impl Communication for NonInteractive {
         Err(error)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test::{matchers, with_temp_dir, test};
+    use crate::test::assert_fs::*;
+    use predicates::prelude::*;
+
+    #[test]
+    fn from_different_interactive_values() {
+        from(Interactive::Gui);
+        from(Interactive::Text);
+        from(Interactive::Off);
+    }
+
+    #[test]
+    fn non_interactive_available() {
+        assert!(NonInteractive::available());
+    }
+
+    #[test]
+    fn non_interactive_run() {
+        let matchers = [matchers::ymd_boxed()];
+
+        with_temp_dir(|temp| {
+            let child1 = temp.existing_child("foo 20240120");
+            let child2 = temp.existing_child("bar 2024012");
+
+            let paths = [
+                child1.to_path_buf(), child2.to_path_buf()
+            ];
+            let mut ui = NonInteractive::new();
+
+            assert!(ui.process(&matchers, &paths).is_ok());
+
+            child1.assert(predicate::path::missing());
+            temp.child("2024-01-20 foo").assert(predicate::path::exists());
+
+            child2.assert(predicate::path::exists());
+        });
+    }
+}

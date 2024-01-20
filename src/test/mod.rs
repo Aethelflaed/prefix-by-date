@@ -6,6 +6,8 @@ pub use pretty_assertions::{assert_eq, assert_ne};
 
 pub mod matchers;
 pub mod paths;
+pub mod assert_fs;
+pub mod prelude;
 
 pub fn with_temp_dir<F, R>(function: F) -> R
 where
@@ -38,7 +40,7 @@ where
     T: FnOnce() -> R,
     S: AsRef<str>,
 {
-    use assert_fs::fixture::PathCopy;
+    use ::assert_fs::fixture::PathCopy;
 
     with_config_dir(|temp| {
         temp.copy_from(paths::FIXTURES.as_path(), patterns).unwrap();
