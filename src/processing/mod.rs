@@ -194,11 +194,10 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test::test;
+    use crate::test::{matchers, test, with_temp_dir};
     use assert_fs::{
         assert::PathAssert,
         fixture::{FileWriteStr, PathChild},
-        TempDir,
     };
     use mockall::*;
 
@@ -216,54 +215,11 @@ mod tests {
         }
     }
 
-    fn predetermined_date() -> Box<dyn Matcher> {
-        use crate::matcher::PredeterminedDate;
-
-        Box::<PredeterminedDate>::default()
-    }
-
-    fn weird_pattern() -> Box<dyn Matcher> {
-        use crate::matcher::Pattern;
-
-        Box::new(
-            Pattern::builder()
-                .name("weird")
-                .regex("WEIRD")
-                .build()
-                .unwrap(),
-        )
-    }
-
-    fn ymd_pattern() -> Box<dyn Matcher> {
-        use crate::matcher::Pattern;
-
-        Box::new(
-            Pattern::builder()
-                .name("ymd")
-                .regex(r"(?<start>.+)\s+(?<year>\d{4})(?<month>\d{2})(?<day>\d{2})")
-                .build()
-                .unwrap(),
-        )
-    }
-
-    fn in_temp_dir<F, R>(function: F) -> R
-    where
-        F: FnOnce(&TempDir) -> R,
-    {
-        let temp = TempDir::new().unwrap();
-        let result = function(&temp);
-
-        // The descrutor would silence any issue, so we call close() explicitly
-        temp.close().unwrap();
-
-        result
-    }
-
     // Ensure no work is done if we have either no matchers or no paths
     #[test]
     fn empty_paths_and_or_matchers() -> Result<()> {
         let mut interface = MockInterface::new();
-        let matchers = [predetermined_date()];
+        let matchers = [matchers::today_boxed()];
         let paths = [PathBuf::from("foo")];
 
         interface.expect_setup().never();
@@ -283,9 +239,9 @@ mod tests {
     // Ensure early return in case the path does not exist
     #[test]
     fn unexisting_path() -> Result<()> {
-        in_temp_dir(|temp| {
+        with_temp_dir(|temp| {
             let mut interface = MockInterface::new();
-            let matchers = [predetermined_date()];
+            let matchers = [matchers::today_boxed()];
             let path = temp.path().join("foo");
             let paths = [path.clone()];
 
@@ -317,9 +273,9 @@ mod tests {
     // Ensure rescue is called when there is no match, returning an error
     #[test]
     fn rescue_and_return_error() -> Result<()> {
-        in_temp_dir(|temp| {
+        with_temp_dir(|temp| {
             let mut interface = MockInterface::new();
-            let matchers = [weird_pattern()];
+            let matchers = [matchers::weird_boxed()];
             let child = temp.child("foo");
             child.write_str("whatever").unwrap();
             let path = child.path().to_path_buf();
@@ -359,9 +315,9 @@ mod tests {
     // Ensure rescue is called when there is no match, returning a replacement
     #[test]
     fn rescue_and_return_replacement() -> Result<()> {
-        in_temp_dir(|temp| {
+        with_temp_dir(|temp| {
             let mut interface = MockInterface::new();
-            let matchers = [weird_pattern()];
+            let matchers = [matchers::weird_boxed()];
             let child = temp.child("foo");
             child.write_str("whatever").unwrap();
             let path = child.path().to_path_buf();
@@ -409,9 +365,9 @@ mod tests {
     // it is constructed from does not exists so Replacement::execute fails
     #[test]
     fn rescue_and_return_erroneous_replacement() -> Result<()> {
-        in_temp_dir(|temp| {
+        with_temp_dir(|temp| {
             let mut interface = MockInterface::new();
-            let matchers = [weird_pattern()];
+            let matchers = [matchers::weird_boxed()];
             let child = temp.child("foo");
             child.write_str("whatever").unwrap();
             let path = child.path().to_path_buf();
@@ -453,9 +409,9 @@ mod tests {
     // Ensure accepted replacement is executed
     #[test]
     fn confirm_accept() -> Result<()> {
-        in_temp_dir(|temp| {
+        with_temp_dir(|temp| {
             let mut interface = MockInterface::new();
-            let matchers = [ymd_pattern()];
+            let matchers = [matchers::ymd_boxed()];
 
             let child = temp.child("foo 20240120");
             child.write_str("whatever").unwrap();
@@ -531,9 +487,9 @@ mod tests {
     // the same matcher
     #[test]
     fn confirm_always() -> Result<()> {
-        in_temp_dir(|temp| {
+        with_temp_dir(|temp| {
             let mut interface = MockInterface::new();
-            let matchers = [ymd_pattern()];
+            let matchers = [matchers::ymd_boxed()];
 
             let child = temp.child("foo 20240120");
             child.write_str("whatever").unwrap();
@@ -603,9 +559,9 @@ mod tests {
     // Ensure second matcher is not considered if the path is skipped
     #[test]
     fn confirm_skip() -> Result<()> {
-        in_temp_dir(|temp| {
+        with_temp_dir(|temp| {
             let mut interface = MockInterface::new();
-            let matchers = [ymd_pattern(), ymd_pattern()];
+            let matchers = [matchers::ymd_boxed(), matchers::ymd_boxed()];
             let child = temp.child("foo 20240120");
             child.write_str("whatever").unwrap();
             let path = child.path().to_path_buf();
@@ -645,9 +601,9 @@ mod tests {
     // rescue is not called anyway
     #[test]
     fn confirm_refuse_twice_and_return_no_match_without_rescue() -> Result<()> {
-        in_temp_dir(|temp| {
+        with_temp_dir(|temp| {
             let mut interface = MockInterface::new();
-            let matchers = [ymd_pattern(), ymd_pattern()];
+            let matchers = [matchers::ymd_boxed(), matchers::ymd_boxed()];
             let child = temp.child("foo 20240120");
             child.write_str("whatever").unwrap();
             let path = child.path().to_path_buf();
@@ -690,9 +646,9 @@ mod tests {
     // is ignored on first path
     #[test]
     fn confirm_ignore() -> Result<()> {
-        in_temp_dir(|temp| {
+        with_temp_dir(|temp| {
             let mut interface = MockInterface::new();
-            let matchers = [ymd_pattern()];
+            let matchers = [matchers::ymd_boxed()];
             let child = temp.child("foo 20240120");
             child.write_str("whatever").unwrap();
             let path = child.path().to_path_buf();
@@ -748,9 +704,9 @@ mod tests {
     // Ensure early return with abort
     #[test]
     fn confirm_abort() -> Result<()> {
-        in_temp_dir(|temp| {
+        with_temp_dir(|temp| {
             let mut interface = MockInterface::new();
-            let matchers = [ymd_pattern(), ymd_pattern()];
+            let matchers = [matchers::ymd_boxed(), matchers::ymd_boxed()];
             let child = temp.child("foo 20240120");
             child.write_str("whatever").unwrap();
             let path = child.path().to_path_buf();
@@ -791,9 +747,9 @@ mod tests {
     // Ensure replacement given is executed
     #[test]
     fn confirm_replace() -> Result<()> {
-        in_temp_dir(|temp| {
+        with_temp_dir(|temp| {
             let mut interface = MockInterface::new();
-            let matchers = [ymd_pattern()];
+            let matchers = [matchers::ymd_boxed()];
             let child = temp.child("foo 20240120");
             child.write_str("whatever").unwrap();
             let path = child.path().to_path_buf();

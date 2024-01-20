@@ -203,49 +203,9 @@ fn config_home() -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test::{assert_eq, test};
-    use assert_fs::{fixture::PathCopy, TempDir};
-    use temp_env::with_var;
-
-    fn fixtures_path() -> PathBuf {
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures")
-    }
-
-    fn with_config_dir<T, R>(function: T) -> R
-    where
-        T: FnOnce(&TempDir) -> R,
-    {
-        let temp = TempDir::new().unwrap();
-        let result = with_var(
-            "PREFIX_BY_DATE_CONFIG",
-            Some(temp.path().as_os_str()),
-            || function(&temp),
-        );
-
-        // The descrutor would silence any issue, so we call close() explicitly
-        temp.close().unwrap();
-
-        result
-    }
-
-    fn with_config_copied<T, R, S>(patterns: &[S], function: T) -> R
-    where
-        T: FnOnce() -> R,
-        S: AsRef<str>,
-    {
-        with_config_dir(|temp| {
-            temp.copy_from(fixtures_path(), patterns).unwrap();
-
-            function()
-        })
-    }
-
-    fn with_config<T, R>(function: T) -> R
-    where
-        T: FnOnce() -> R,
-    {
-        with_config_copied(&["config.toml"], function)
-    }
+    use crate::test::{
+        assert_eq, test, with_config, with_config_copied, with_config_dir,
+    };
 
     fn arguments_with_config(config: &str) -> Arguments {
         let mut arguments = Arguments::default();
@@ -259,7 +219,7 @@ mod tests {
 
     #[test]
     fn config_home_default() {
-        with_var("PREFIX_BY_DATE_CONFIG", None::<&str>, || {
+        temp_env::with_var("PREFIX_BY_DATE_CONFIG", None::<&str>, || {
             let xdg_dirs =
                 xdg::BaseDirectories::with_prefix("prefix-by-date").unwrap();
             assert_eq!(xdg_dirs.get_config_home(), config_home());
@@ -268,7 +228,7 @@ mod tests {
 
     #[test]
     fn config_home_with_var() {
-        with_var("PREFIX_BY_DATE_CONFIG", Some("./"), || {
+        temp_env::with_var("PREFIX_BY_DATE_CONFIG", Some("./"), || {
             assert_eq!(PathBuf::from("./"), config_home());
         });
     }

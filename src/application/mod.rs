@@ -95,7 +95,7 @@ impl Application {
         self.ui.process(&self.matchers, self.arguments.paths())
     }
 
-    fn add_pattern_matcher(&mut self, pattern: Pattern) {
+    pub(crate) fn add_pattern_matcher(&mut self, pattern: Pattern) {
         if pattern.time() == self.arguments.time()
             && !RESERVED_MATCHER_NAMES.contains(&pattern.name())
         {
@@ -103,7 +103,7 @@ impl Application {
         }
     }
 
-    fn add_matcher<M: Matcher + 'static>(&mut self, matcher: M) {
+    pub(crate) fn add_matcher<M: Matcher + 'static>(&mut self, matcher: M) {
         if !self.matchers.iter().any(|m| m.name() == matcher.name()) {
             self.matchers.push(Box::new(matcher));
         }
