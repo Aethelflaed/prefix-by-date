@@ -17,8 +17,8 @@ pub struct Arguments {
     default_date_format: String,
     default_date_time_format: String,
 
-    today: bool,
-    metadata: Metadata,
+    pub(in crate::application) today: bool,
+    pub(in crate::application) metadata: Metadata,
 
     pub(in crate::application) patterns: Option<Table>,
 

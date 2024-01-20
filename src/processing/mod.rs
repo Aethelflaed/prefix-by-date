@@ -196,11 +196,10 @@ mod tests {
     use super::*;
     use crate::test::test;
     use assert_fs::{
-        fixture::{FileWriteStr, PathChild},
         assert::PathAssert,
+        fixture::{FileWriteStr, PathChild},
         TempDir,
     };
-    use predicates::prelude::*;
     use mockall::*;
 
     mock! {
@@ -511,13 +510,18 @@ mod tests {
             let mut processing = Processing::new(&interface, &matchers, &paths);
             processing.run()?;
 
-            log::error!("temp dir: {:?}", temp.read_dir().unwrap().collect::<Vec<_>>());
+            log::error!(
+                "temp dir: {:?}",
+                temp.read_dir().unwrap().collect::<Vec<_>>()
+            );
 
             child.assert(predicate::path::missing());
-            temp.child("2024-01-20 foo").assert(predicate::path::exists());
+            temp.child("2024-01-20 foo")
+                .assert(predicate::path::exists());
 
             child2.assert(predicate::path::missing());
-            temp.child("2024-01-20 bar").assert(predicate::path::exists());
+            temp.child("2024-01-20 bar")
+                .assert(predicate::path::exists());
 
             Ok(())
         })
@@ -579,18 +583,23 @@ mod tests {
             let mut processing = Processing::new(&interface, &matchers, &paths);
             processing.run()?;
 
-            log::error!("temp dir: {:?}", temp.read_dir().unwrap().collect::<Vec<_>>());
+            log::error!(
+                "temp dir: {:?}",
+                temp.read_dir().unwrap().collect::<Vec<_>>()
+            );
 
             child.assert(predicate::path::missing());
-            temp.child("2024-01-20 foo").assert(predicate::path::exists());
+            temp.child("2024-01-20 foo")
+                .assert(predicate::path::exists());
 
             child2.assert(predicate::path::missing());
-            temp.child("2024-01-20 bar").assert(predicate::path::exists());
+            temp.child("2024-01-20 bar")
+                .assert(predicate::path::exists());
 
             Ok(())
         })
     }
-  
+
     // Ensure second matcher is not considered if the path is skipped
     #[test]
     fn confirm_skip() -> Result<()> {

@@ -43,7 +43,11 @@ impl Application {
     }
 
     pub fn setup(&mut self) -> Result<()> {
-        self.ui = ui::from(self.arguments.interactive());
+        self.setup_with_ui(ui::from(self.arguments.interactive()))
+    }
+
+    fn setup_with_ui(&mut self, ui: Box<dyn ui::Interface>) -> Result<()> {
+        self.ui = ui;
 
         self.setup_log()?;
         log::set_max_level(self.arguments.log_level_filter());
@@ -217,6 +221,117 @@ mod tests {
                     .unwrap(),
             );
             assert_eq!(1, app.matchers.len());
+        }
+    }
+
+    mod setup {
+        use super::*;
+        use crate::test::test;
+        use mockall::mock;
+
+        use std::path::PathBuf;
+
+        mock! {
+            Interface {}
+
+            impl ui::Interface for Interface {
+                fn setup_logger(
+                    &mut self,
+                    _logger_builder: &mut env_logger::Builder,
+                ) -> LogResult;
+
+                fn process(
+                    &mut self,
+                    _matchers: &[Box<dyn crate::matcher::Matcher>],
+                    _paths: &[PathBuf],
+                ) -> Result<()>;
+            }
+        }
+
+        #[test]
+        fn standard_call() {
+            let mut app = Application::new();
+            assert!(matches!(app.setup(), Err(Error::SetLoggerError(_))));
+        }
+
+        #[test]
+        fn default_run_with_fake_ui() {
+            let mut app = Application::default();
+            let mut ui = MockInterface::new();
+
+            ui.expect_setup_logger().times(1).returning(|_| Ok(()));
+            ui.expect_process().times(1).returning(|_, _| Ok(()));
+
+            app.setup_with_ui(Box::new(ui)).unwrap();
+
+            // by default, no matcher is added
+            assert!(app.matchers.is_empty());
+
+            app.run().unwrap();
+        }
+
+        #[test]
+        fn setup_today_matcher() {
+            let mut app = Application::default();
+            let mut ui = MockInterface::new();
+
+            ui.expect_setup_logger().times(1).returning(|_| Ok(()));
+
+            use crate::matcher::predetermined_date::TODAY;
+            app.arguments.today = true;
+
+            app.setup_with_ui(Box::new(ui)).unwrap();
+
+            assert!(app.matchers.iter().any(|m| m.name() == TODAY));
+        }
+
+        #[test]
+        fn setup_created_matcher() {
+            let mut app = Application::default();
+            let mut ui = MockInterface::new();
+
+            ui.expect_setup_logger().times(1).returning(|_| Ok(()));
+
+            use crate::matcher::metadata::CREATED;
+            use cli::Metadata;
+            app.arguments.metadata = Metadata::Created;
+
+            app.setup_with_ui(Box::new(ui)).unwrap();
+
+            assert!(app.matchers.iter().any(|m| m.name() == CREATED));
+        }
+
+        #[test]
+        fn setup_modified_matcher() {
+            let mut app = Application::default();
+            let mut ui = MockInterface::new();
+
+            ui.expect_setup_logger().times(1).returning(|_| Ok(()));
+
+            use crate::matcher::metadata::MODIFIED;
+            use cli::Metadata;
+            app.arguments.metadata = Metadata::Modified;
+
+            app.setup_with_ui(Box::new(ui)).unwrap();
+
+            assert!(app.matchers.iter().any(|m| m.name() == MODIFIED));
+        }
+
+        #[test]
+        fn setup_metadata_both_matcher() {
+            let mut app = Application::default();
+            let mut ui = MockInterface::new();
+
+            ui.expect_setup_logger().times(1).returning(|_| Ok(()));
+
+            use crate::matcher::metadata::{CREATED, MODIFIED};
+            use cli::Metadata;
+            app.arguments.metadata = Metadata::Both;
+
+            app.setup_with_ui(Box::new(ui)).unwrap();
+
+            assert!(app.matchers.iter().any(|m| m.name() == CREATED));
+            assert!(app.matchers.iter().any(|m| m.name() == MODIFIED));
         }
     }
 }
