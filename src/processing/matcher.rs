@@ -3,7 +3,6 @@ use crate::replacement::Replacement;
 
 use std::path::Path;
 
-#[derive(Clone)]
 pub struct ProcessingMatcher<'a> {
     confirmed: bool,
     ignored: bool,

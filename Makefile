@@ -9,6 +9,7 @@ install_debug: files/debug.desktop files/config.toml
 
 clean_coverage:
 	rm -rf target/coverage
+	rm -rf target/debug/deps/prefix_by_date*
 
 test_coverage: export CARGO_INCREMENTAL = 0
 test_coverage: export RUSTFLAGS = -Cinstrument-coverage
