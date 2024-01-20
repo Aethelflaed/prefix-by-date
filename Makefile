@@ -1,8 +1,10 @@
+.PHONY: install clean_coverage test_coverage coverage test_files build text gui journal
+
 export PREFIX_BY_DATE_LOG=error,prefix_by_date=debug
 
-install_debug: files/debug.desktop files/config.toml
+install: files/prefix-by-date.desktop files/config.toml
 	mkdir -p ~/.local/share/kio/servicemenus
-	cp files/debug.desktop ~/.local/share/kio/servicemenus/prefix-by-date.desktop
+	cp files/prefix-by-date.desktop ~/.local/share/kio/servicemenus/prefix-by-date.desktop
 	update-desktop-database ~/.local/share/kio/servicemenus
 	mkdir -p ~/.config/prefix-by-date
 	cp files/config.toml ~/.config/prefix-by-date/
@@ -29,15 +31,16 @@ coverage: test_coverage
 		--ignore "target/*" \
 		-o target/coverage/html
 
-test: install_debug
+test_files: install
 	make -C tests
 
-text: test
-	cargo build -F gui -F text
+build:
+	cargo build
+
+text: test_files build
 	./target/debug/prefix-by-date -vvv -i text tests/sandbox/*
 
-gui: test
-	cargo build -F gui -F text
+gui: test_files build
 	./target/debug/prefix-by-date -vvv -i gui tests/sandbox/*
 
 journal:
