@@ -138,4 +138,22 @@ mod tests {
             replacement.new_path()
         );
     }
+
+    #[test]
+    fn display() {
+        let path = PathBuf::from("/this/is/a/test.pdf");
+        let mut replacement = Replacement::try_from(path.as_path()).unwrap();
+        replacement.new_file_stem = String::from("foo");
+
+        assert_eq!("/this/is/a/{test => foo}.pdf", format!("{}", replacement));
+    }
+
+    #[test]
+    fn display_without_extension() {
+        let path = PathBuf::from("/this/is/a/test");
+        let mut replacement = Replacement::try_from(path.as_path()).unwrap();
+        replacement.new_file_stem = String::from("foo");
+
+        assert_eq!("/this/is/a/{test => foo}", format!("{}", replacement));
+    }
 }
