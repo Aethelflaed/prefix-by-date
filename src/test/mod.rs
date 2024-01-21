@@ -4,9 +4,9 @@ pub use test_log::test;
 
 pub use pretty_assertions::{assert_eq, assert_ne};
 
+pub mod assert_fs;
 pub mod matchers;
 pub mod paths;
-pub mod assert_fs;
 
 pub fn with_temp_dir<F, R>(function: F) -> R
 where

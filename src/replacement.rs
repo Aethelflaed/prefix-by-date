@@ -45,10 +45,10 @@ impl TryFrom<&Path> for Replacement {
 }
 
 impl Replacement {
-    pub fn execute(&self) -> Result<Self> {
+    pub fn execute(&self) -> Result<()> {
         std::fs::rename(self.path(), self.new_path())?;
 
-        Ok(self.clone())
+        Ok(())
     }
 
     pub fn file_name(&self) -> String {

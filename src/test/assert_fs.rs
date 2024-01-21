@@ -1,4 +1,8 @@
-pub use assert_fs::{TempDir, fixture::{FixtureError, ChildPath}, prelude::*};
+pub use assert_fs::{
+    fixture::{ChildPath, FixtureError},
+    prelude::*,
+    TempDir,
+};
 
 use std::path;
 
@@ -11,7 +15,7 @@ pub trait PathExistingChild {
 impl PathExistingChild for TempDir {
     fn existing_child<P>(&self, path: P) -> Result<ChildPath, FixtureError>
     where
-        P: AsRef<path::Path>
+        P: AsRef<path::Path>,
     {
         let child = self.child(path);
         child.touch()?;
@@ -22,7 +26,7 @@ impl PathExistingChild for TempDir {
 impl PathExistingChild for ChildPath {
     fn existing_child<P>(&self, path: P) -> Result<ChildPath, FixtureError>
     where
-        P: AsRef<path::Path>
+        P: AsRef<path::Path>,
     {
         let child = self.child(path);
         child.touch()?;

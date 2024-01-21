@@ -91,10 +91,9 @@ where
         for path in self.paths {
             self.report_processing(path);
 
-            match self
-                .prefix_if_possible(path)
-                .and_then(|replacement| replacement.execute())
-            {
+            match self.prefix_if_possible(path).and_then(|replacement| {
+                replacement.execute().map(|_| replacement)
+            }) {
                 Ok(replacement) => {
                     self.report_processing_ok(&replacement);
                 }
@@ -194,7 +193,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test::{matchers, test, with_temp_dir, assert_fs::*};
+    use crate::test::{assert_fs::*, matchers, test, with_temp_dir};
     use mockall::*;
 
     mock! {
