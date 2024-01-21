@@ -3,7 +3,7 @@ use crate::processing::{Error, Result};
 use std::fmt;
 use std::path::{Path, PathBuf};
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct Replacement {
     pub parent: PathBuf,
     pub file_stem: String,

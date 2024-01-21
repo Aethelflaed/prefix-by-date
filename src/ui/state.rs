@@ -105,6 +105,10 @@ impl State {
     /// Transition from Resolving to Resolved, incrementing the progress
     /// tracker and logging the successful result
     pub fn set_current_success(&mut self, replacement: Replacement) {
+        if !matches!(self.current, Current::Resolving(_)) {
+            return;
+        }
+
         self.index += 1;
         self.logs.push(ProcessingResult::Success(replacement));
         self.current = Current::Resolved;
@@ -113,6 +117,10 @@ impl State {
     /// Transition from Resolving to Resolved, incrementing the progress
     /// tracker and logging the failed result
     pub fn set_current_failure(&mut self, path: PathBuf, error: String) {
+        if !matches!(self.current, Current::Resolving(_)) {
+            return;
+        }
+
         self.index += 1;
         self.logs.push(ProcessingResult::Failure(path, error));
         self.current = Current::Resolved;
@@ -126,8 +134,9 @@ impl State {
     pub fn customize(&mut self, string: String) {
         if let Some(change) = self.change_mut() {
             change.customize = Some(string);
+
+            self.actions = Action::determine_for(&self.current);
         }
-        self.actions = Action::determine_for(&self.current);
     }
 
     /// Cancel current customization, i.e. sets the customize field of the
@@ -137,8 +146,9 @@ impl State {
     pub fn cancel_customize(&mut self) {
         if let Some(change) = self.change_mut() {
             change.customize = None;
+
+            self.actions = Action::determine_for(&self.current);
         }
-        self.actions = Action::determine_for(&self.current);
     }
 
     /// Get a Replacement from the customize field of the current change
@@ -252,7 +262,7 @@ impl Change {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ProcessingResult {
     Success(Replacement),
     Failure(PathBuf, String),
@@ -270,20 +280,354 @@ impl std::fmt::Display for ProcessingResult {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test::{assert_eq, test};
+    use crate::test::{assert_eq, matchers, test};
 
-    fn path() -> PathBuf {
-        PathBuf::from("/this/is/a/test")
+    #[derive(Default)]
+    struct CurrentIterator {
+        state: Current,
     }
 
-    fn change() -> Change {
-        Change {
-            replacement: Replacement::try_from(path().as_path()).unwrap(),
-            alternatives: HashMap::from([(
-                "Hello".to_string(),
-                Replacement::default(),
-            )]),
-            customize: None,
+    impl Iterator for CurrentIterator {
+        type Item = Current;
+
+        fn next(&mut self) -> Option<Self::Item> {
+            match self.state {
+                Current::None => {
+                    self.state = Current::Path(PathBuf::default());
+                    Some(self.state.clone())
+                }
+                Current::Path(_) => {
+                    self.state = Current::Confirm(Change::default());
+                    Some(self.state.clone())
+                }
+                Current::Confirm(_) => {
+                    self.state = Current::Rescue(Change::default());
+                    Some(self.state.clone())
+                }
+                Current::Rescue(_) => {
+                    self.state = Current::Resolving(Confirmation::Accept);
+                    Some(self.state.clone())
+                }
+                Current::Resolving(_) => {
+                    self.state = Current::Resolved;
+                    Some(self.state.clone())
+                }
+                Current::Resolved => None,
+            }
         }
+    }
+
+    #[test]
+    fn state_new() {
+        let state = State::default();
+        assert_eq!(state.len(), 0);
+
+        let state = State::new(0xDEAD);
+        assert_eq!(state.index(), 0);
+        assert_eq!(state.len(), 0xDEAD);
+        assert_eq!(state.current(), &Current::None);
+        assert!(state.actions().is_empty());
+        assert!(state.logs().is_empty());
+    }
+
+    #[test]
+    fn set_current_path() {
+        let path = PathBuf::from("/test");
+
+        for current in CurrentIterator::default() {
+            let mut state = State::default();
+            state.current = current.clone();
+            state.actions = vec![Action::Cancel];
+            state.set_current_path(path.clone());
+
+            match current {
+                Current::None | Current::Resolved => {
+                    assert_eq!(state.current, Current::Path(path.clone()));
+                    assert!(state.actions.is_empty());
+                }
+                _ => {
+                    assert_eq!(state.current, current);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn set_current_confirm() {
+        let path = PathBuf::from("/test");
+        let replacement = Replacement::try_from(path.as_path()).unwrap();
+
+        for current in CurrentIterator::default() {
+            let mut state = State::default();
+            state.current = current.clone();
+            state.actions = vec![Action::Cancel];
+            state.set_current_confirm(replacement.clone(), &[]);
+
+            match current {
+                Current::Path(_) | Current::Resolving(_) => {
+                    assert_eq!(
+                        state.current,
+                        Current::Confirm(Change::new(replacement.clone()))
+                    );
+                    assert!(state
+                        .actions
+                        .iter()
+                        .any(|action| action == &Action::Accept));
+                }
+                _ => {
+                    assert_eq!(state.current, current);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn set_current_confirm_with_matchers() {
+        let path = PathBuf::from("/test/foo 20240120");
+        let mut replacement = Replacement::try_from(path.as_path()).unwrap();
+        replacement.new_file_stem = String::from("2024-01-20 foo");
+        let matchers = [matchers::ymd_boxed(), matchers::today_boxed()];
+
+        let mut state = State::default();
+        state.current = Current::Path(PathBuf::default());
+        state.set_current_confirm(replacement.clone(), &matchers);
+
+        assert!(matches!(state.current, Current::Confirm(_)));
+        let change = state.change().unwrap();
+        assert_eq!(change.alternatives.len(), 1);
+
+        let (key, rep) = change.alternatives.iter().next().unwrap();
+        assert_eq!(key, crate::matcher::predetermined_date::TODAY);
+        assert_eq!(replacement.parent, rep.parent);
+    }
+
+    #[test]
+    fn set_current_rescue() {
+        let replacement = Replacement::default();
+
+        for current in CurrentIterator::default() {
+            let mut state = State::default();
+            state.current = current.clone();
+            state.actions = vec![Action::Cancel];
+            state.set_current_rescue(replacement.clone());
+
+            match current {
+                Current::Path(_) => {
+                    assert_eq!(
+                        state.current,
+                        Current::Rescue(Change::new(replacement.clone()))
+                    );
+                    assert!(state
+                        .actions
+                        .iter()
+                        .any(|action| action == &Action::Skip));
+                }
+                _ => {
+                    assert_eq!(state.current, current);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn set_current_resolving() {
+        let conf = Confirmation::Accept;
+
+        for current in CurrentIterator::default() {
+            let mut state = State::default();
+            state.current = current.clone();
+            state.actions = Action::determine_for(&current);
+            let resolving = state.set_current_resolving(conf.clone());
+
+            match current {
+                Current::Confirm(_) => {
+                    assert!(resolving);
+                    assert_eq!(
+                        state.current,
+                        Current::Resolving(Confirmation::Accept)
+                    );
+                    assert!(state.actions.is_empty());
+                }
+                Current::Rescue(_) => {
+                    assert!(!resolving);
+                    assert_eq!(state.current, current);
+
+                    let resolving =
+                        state.set_current_resolving(Confirmation::Skip);
+                    assert!(resolving);
+                    assert_eq!(
+                        state.current,
+                        Current::Resolving(Confirmation::Accept)
+                    );
+                    assert!(state.actions.is_empty());
+                }
+                _ => {
+                    assert!(!resolving);
+                    assert_eq!(state.current, current);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn set_current_success() {
+        let replacement = Replacement::default();
+
+        for current in CurrentIterator::default() {
+            let mut state = State::default();
+            state.current = current.clone();
+            state.actions = vec![Action::Cancel];
+            state.set_current_success(replacement.clone());
+
+            match current {
+                Current::Resolving(_) => {
+                    assert_eq!(state.current, Current::Resolved);
+                    assert!(state.actions.is_empty());
+                    assert_eq!(state.index(), 1);
+                    assert_eq!(
+                        state.logs,
+                        [ProcessingResult::Success(replacement.clone())]
+                    );
+                }
+                _ => {
+                    assert_eq!(state.current, current);
+                    assert_eq!(state.index(), 0);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn set_current_failure() {
+        let path = PathBuf::default();
+        let error = String::default();
+
+        for current in CurrentIterator::default() {
+            let mut state = State::default();
+            state.current = current.clone();
+            state.actions = vec![Action::Cancel];
+            state.set_current_failure(path.clone(), error.clone());
+
+            match current {
+                Current::Resolving(_) => {
+                    assert_eq!(state.current, Current::Resolved);
+                    assert!(state.actions.is_empty());
+                    assert_eq!(state.index(), 1);
+                    assert_eq!(
+                        state.logs,
+                        [ProcessingResult::Failure(
+                            path.clone(),
+                            error.clone()
+                        )]
+                    );
+                }
+                _ => {
+                    assert_eq!(state.current, current);
+                    assert_eq!(state.index(), 0);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn customize() {
+        let string = String::from("foo");
+
+        for current in CurrentIterator::default() {
+            let mut state = State::default();
+            state.current = current.clone();
+            state.actions = vec![Action::Cancel];
+            state.customize(string.clone());
+
+            match current {
+                Current::Confirm(_) | Current::Rescue(_) => {
+                    assert_eq!(
+                        state.change().unwrap().customize,
+                        Some(string.clone())
+                    );
+                    assert!(state
+                        .actions
+                        .iter()
+                        .all(|action| action != &Action::Cancel));
+                }
+                _ => {
+                    assert_eq!(state.actions, vec![Action::Cancel]);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn cancel_customize() {
+        let string = String::from("foo");
+
+        for current in CurrentIterator::default() {
+            let mut state = State::default();
+            state.current = current.clone();
+            state.actions = vec![Action::Cancel];
+            if let Some(change) = state.change_mut() {
+                change.customize = Some(string.clone());
+            }
+            state.cancel_customize();
+
+            match current {
+                Current::Confirm(_) | Current::Rescue(_) => {
+                    assert_eq!(state.change().unwrap().customize, None);
+                    assert!(state
+                        .actions
+                        .iter()
+                        .all(|action| action != &Action::Cancel));
+                }
+                _ => {
+                    assert_eq!(state.actions, vec![Action::Cancel]);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn customized_replacement() {
+        for current in CurrentIterator::default() {
+            let mut state = State::default();
+            state.current = current.clone();
+
+            assert_eq!(state.customized_replacement(), None);
+        }
+
+        let string = String::from("foo");
+
+        for current in CurrentIterator::default() {
+            let mut state = State::default();
+            state.current = current.clone();
+            if let Some(change) = state.change_mut() {
+                change.customize = Some(string.clone());
+            }
+
+            match current {
+                Current::Confirm(_) | Current::Rescue(_) => {
+                    assert!(state.customized_replacement().is_some());
+                    assert_eq!(
+                        state.customized_replacement().unwrap().new_file_stem,
+                        string
+                    );
+                }
+                _ => {
+                    assert_eq!(state.customized_replacement(), None);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn is_further_customizable() {
+        let mut change = Change::default();
+        assert!(change.is_further_customizable());
+
+        change.customize = Some(String::default());
+        assert!(!change.is_further_customizable());
+
+        change.alternatives =
+            HashMap::from([("Hello".to_string(), Replacement::default())]);
+        assert!(change.is_further_customizable());
     }
 }
