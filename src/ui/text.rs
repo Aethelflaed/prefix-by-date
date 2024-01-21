@@ -249,7 +249,7 @@ impl<'a> Resolver<'a> {
                         println!("No match was found for {}", rep.file_name());
                         self.main_dialog();
                     }
-                    Current::Resolving(_, conf) => return conf.clone(),
+                    Current::Resolving(conf) => return conf.clone(),
                     Current::Path(_) | Current::None | Current::Resolved => {
                         unreachable!()
                     }

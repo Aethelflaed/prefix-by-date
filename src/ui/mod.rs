@@ -93,7 +93,7 @@ impl Communication for NonInteractive {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test::{matchers, with_temp_dir, test, assert_fs::*};
+    use crate::test::{assert_fs::*, matchers, test, with_temp_dir};
     use predicates::prelude::*;
 
     #[test]
@@ -116,15 +116,14 @@ mod tests {
             let child1 = temp.existing_child("foo 20240120").unwrap();
             let child2 = temp.existing_child("bar 2024012").unwrap();
 
-            let paths = [
-                child1.to_path_buf(), child2.to_path_buf()
-            ];
+            let paths = [child1.to_path_buf(), child2.to_path_buf()];
             let mut ui = NonInteractive::new();
 
             assert!(ui.process(&matchers, &paths).is_ok());
 
             child1.assert(predicate::path::missing());
-            temp.child("2024-01-20 foo").assert(predicate::path::exists());
+            temp.child("2024-01-20 foo")
+                .assert(predicate::path::exists());
 
             child2.assert(predicate::path::exists());
         });

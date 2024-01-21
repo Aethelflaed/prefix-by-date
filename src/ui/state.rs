@@ -46,8 +46,7 @@ impl State {
         replacement: Replacement,
         matchers: &[Box<dyn Matcher>],
     ) {
-        if !matches!(self.current, Current::Path(_) | Current::Resolving(_, _))
-        {
+        if !matches!(self.current, Current::Path(_) | Current::Resolving(_)) {
             return;
         }
 
@@ -94,7 +93,7 @@ impl State {
         if matches!(self.current, Current::Confirm(_) | Current::Rescue(_))
             && self.actions.contains(&Action::from(&conf))
         {
-            self.current.resolving(conf.clone());
+            self.current = Current::Resolving(conf);
             self.actions = Action::determine_for(&self.current);
 
             return true;
@@ -216,7 +215,7 @@ pub enum Current {
     /// A decision has been taken (Confirmation).
     ///
     /// From Confirm and Rescue
-    Resolving(Change, Confirmation),
+    Resolving(Confirmation),
     /// The path has been processed
     ///
     /// From Resolving
@@ -226,26 +225,6 @@ pub enum Current {
 impl PartialEq for Current {
     fn eq(&self, other: &Current) -> bool {
         std::mem::discriminant(self) == std::mem::discriminant(other)
-    }
-}
-
-impl Current {
-    /// Change self to Resolving from a Confirm or Rescue by re-using the
-    /// same Change
-    fn resolving(&mut self, conf: Confirmation) {
-        use Current::*;
-
-        match self {
-            Confirm(_) | Rescue(_) => {
-                let old = std::mem::take(self);
-                if let Confirm(change) = old {
-                    let _ = std::mem::replace(self, Resolving(change, conf));
-                } else if let Rescue(change) = old {
-                    let _ = std::mem::replace(self, Resolving(change, conf));
-                }
-            }
-            _ => {}
-        }
     }
 }
 
@@ -306,74 +285,5 @@ mod tests {
             )]),
             customize: None,
         }
-    }
-
-    fn test_current_resolving(mut current: Current) {
-        match current.clone() {
-            Current::None => {
-                let mut current = Current::None;
-                current.resolving(Confirmation::Abort);
-                assert_eq!(Current::None, current);
-            }
-            Current::Path(path) => {
-                current.resolving(Confirmation::Abort);
-                assert_eq!(Current::Path(path), current);
-            }
-            Current::Confirm(change) => {
-                current.resolving(Confirmation::Abort);
-                assert_eq!(
-                    Current::Resolving(change, Confirmation::Abort),
-                    current
-                );
-            }
-            Current::Rescue(change) => {
-                current.resolving(Confirmation::Abort);
-                assert_eq!(
-                    Current::Resolving(change, Confirmation::Abort),
-                    current
-                );
-            }
-            Current::Resolving(change, conf) => {
-                current.resolving(Confirmation::Abort);
-                assert_eq!(Current::Resolving(change, conf), current);
-            }
-            Current::Resolved => {
-                current.resolving(Confirmation::Abort);
-                assert_eq!(Current::Resolved, current);
-            }
-        }
-    }
-
-    #[test]
-    fn current_resolving_none() {
-        test_current_resolving(Current::None);
-    }
-
-    #[test]
-    fn current_resolving_path() {
-        test_current_resolving(Current::Path(path()));
-    }
-
-    #[test]
-    fn current_resolving_confirm() {
-        test_current_resolving(Current::Confirm(change()));
-    }
-
-    #[test]
-    fn current_resolving_rescue() {
-        test_current_resolving(Current::Rescue(change()));
-    }
-
-    #[test]
-    fn current_resolving_resolving() {
-        test_current_resolving(Current::Resolving(
-            change(),
-            Confirmation::Accept,
-        ));
-    }
-
-    #[test]
-    fn current_resolving_resolved() {
-        test_current_resolving(Current::Resolved);
     }
 }
