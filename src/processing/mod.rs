@@ -272,7 +272,7 @@ mod tests {
         with_temp_dir(|temp| {
             let mut interface = MockInterface::new();
             let matchers = [matchers::weird_boxed()];
-            let child = temp.existing_child("foo");
+            let child = temp.existing_child("foo").unwrap();
             let path = child.to_path_buf();
             let paths = [path.clone()];
 
@@ -313,7 +313,7 @@ mod tests {
         with_temp_dir(|temp| {
             let mut interface = MockInterface::new();
             let matchers = [matchers::weird_boxed()];
-            let child = temp.existing_child("foo");
+            let child = temp.existing_child("foo").unwrap();
             let path = child.to_path_buf();
             let paths = [path.clone()];
 
@@ -362,7 +362,7 @@ mod tests {
         with_temp_dir(|temp| {
             let mut interface = MockInterface::new();
             let matchers = [matchers::weird_boxed()];
-            let child = temp.existing_child("foo");
+            let child = temp.existing_child("foo").unwrap();
             let path = child.to_path_buf();
             let paths = [path.clone()];
 
@@ -406,10 +406,10 @@ mod tests {
             let mut interface = MockInterface::new();
             let matchers = [matchers::ymd_boxed()];
 
-            let child = temp.existing_child("foo 20240120");
+            let child = temp.existing_child("foo 20240120").unwrap();
             let path = child.to_path_buf();
 
-            let child2 = temp.existing_child("bar 20240120");
+            let child2 = temp.existing_child("bar 20240120").unwrap();
             let path2 = child2.to_path_buf();
 
             let paths = [path.clone(), path2.clone()];
@@ -482,10 +482,10 @@ mod tests {
             let mut interface = MockInterface::new();
             let matchers = [matchers::ymd_boxed()];
 
-            let child = temp.existing_child("foo 20240120");
+            let child = temp.existing_child("foo 20240120").unwrap();
             let path = child.to_path_buf();
 
-            let child2 = temp.existing_child("bar 20240120");
+            let child2 = temp.existing_child("bar 20240120").unwrap();
             let path2 = child2.to_path_buf();
 
             let paths = [path.clone(), path2.clone()];
@@ -551,7 +551,7 @@ mod tests {
         with_temp_dir(|temp| {
             let mut interface = MockInterface::new();
             let matchers = [matchers::ymd_boxed(), matchers::ymd_boxed()];
-            let child = temp.existing_child("foo 20240120");
+            let child = temp.existing_child("foo 20240120").unwrap();
             let path = child.to_path_buf();
             let paths = [path.clone()];
 
@@ -592,7 +592,7 @@ mod tests {
         with_temp_dir(|temp| {
             let mut interface = MockInterface::new();
             let matchers = [matchers::ymd_boxed(), matchers::ymd_boxed()];
-            let child = temp.existing_child("foo 20240120");
+            let child = temp.existing_child("foo 20240120").unwrap();
             let path = child.to_path_buf();
             let paths = [path.clone()];
 
@@ -636,7 +636,7 @@ mod tests {
         with_temp_dir(|temp| {
             let mut interface = MockInterface::new();
             let matchers = [matchers::ymd_boxed()];
-            let child = temp.existing_child("foo 20240120");
+            let child = temp.existing_child("foo 20240120").unwrap();
             let path = child.to_path_buf();
             let paths = [path.clone(), path.clone()];
 
@@ -693,7 +693,7 @@ mod tests {
         with_temp_dir(|temp| {
             let mut interface = MockInterface::new();
             let matchers = [matchers::ymd_boxed(), matchers::ymd_boxed()];
-            let child = temp.existing_child("foo 20240120");
+            let child = temp.existing_child("foo 20240120").unwrap();
             let path = child.to_path_buf();
             let paths = [path.clone(), path.clone()];
 
@@ -735,7 +735,7 @@ mod tests {
         with_temp_dir(|temp| {
             let mut interface = MockInterface::new();
             let matchers = [matchers::ymd_boxed()];
-            let child = temp.existing_child("foo 20240120");
+            let child = temp.existing_child("foo 20240120").unwrap();
             let path = child.to_path_buf();
             let paths = [path.clone()];
 

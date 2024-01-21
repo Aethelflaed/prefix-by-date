@@ -113,8 +113,8 @@ mod tests {
         let matchers = [matchers::ymd_boxed()];
 
         with_temp_dir(|temp| {
-            let child1 = temp.existing_child("foo 20240120");
-            let child2 = temp.existing_child("bar 2024012");
+            let child1 = temp.existing_child("foo 20240120").unwrap();
+            let child2 = temp.existing_child("bar 2024012").unwrap();
 
             let paths = [
                 child1.to_path_buf(), child2.to_path_buf()
