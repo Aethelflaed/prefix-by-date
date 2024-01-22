@@ -8,7 +8,13 @@ pub use cli::Interactive;
 
 mod arguments;
 use arguments::Arguments;
-pub use arguments::{DEFAULT_DATE_FORMAT, DEFAULT_DATE_TIME_FORMAT};
+
+pub use arguments::DEFAULT_DATE_FORMAT;
+// The next symbol is only used during tests, which naturally causes the
+// compiler to complain, but I still want to keep it available the same way
+// as the previous one for the sake of uniformity
+#[cfg(test)]
+pub use arguments::DEFAULT_DATE_TIME_FORMAT;
 
 mod error;
 pub use error::Error;
@@ -251,7 +257,7 @@ mod tests {
         #[test]
         fn standard_call() {
             let mut app = Application::new();
-            assert!(matches!(app.setup(), Err(Error::SetLoggerError(_))));
+            assert!(matches!(app.setup(), Err(Error::SetLogger(_))));
         }
 
         #[test]

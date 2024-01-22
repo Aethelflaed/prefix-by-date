@@ -7,7 +7,7 @@ use log::SetLoggerError as LogError;
 #[derive(Debug)]
 pub enum Error {
     Io(io::Error),
-    SetLoggerError(LogError),
+    SetLogger(LogError),
     Processing(ProcessingError),
     Custom(String),
 }
@@ -22,7 +22,7 @@ impl From<io::Error> for Error {
 
 impl From<LogError> for Error {
     fn from(error: LogError) -> Self {
-        Self::SetLoggerError(error)
+        Self::SetLogger(error)
     }
 }
 
@@ -48,7 +48,7 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match &self {
             Self::Io(error) => fmt::Display::fmt(&error, f),
-            Self::SetLoggerError(error) => fmt::Display::fmt(&error, f),
+            Self::SetLogger(error) => fmt::Display::fmt(&error, f),
             Self::Processing(error) => fmt::Display::fmt(&error, f),
             Self::Custom(error) => fmt::Display::fmt(&error, f),
         }
