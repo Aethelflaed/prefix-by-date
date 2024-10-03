@@ -18,24 +18,23 @@
 
 # All values defined under matchers.patterns.* configure a pattern matcher
 
-[matchers.patterns.cic]
+[matchers.patterns.ymd_date_suffix]
 regex = """
   \\A
-  (?<rest>.+)
-  \\s+au\\s+
-  (?<year>\\d{4})[-]?
-  (?<month>\\d{2})[-]?
+  (?<start>.+)[\\ _-]
+  (?<year>\\d{4})[\\ _-]?
+  (?<month>\\d{2})[\\ _-]?
   (?<day>\\d{2})
   \\z
 """
 
-[matchers.patterns.date_suffix]
+[matchers.patterns.dmy_date_suffix]
 regex = """
   \\A
   (?<start>.+)[\\ _-]
-  (?<year>\\d{4})[-]?
-  (?<month>\\d{2})[-]?
-  (?<day>\\d{2})
+  (?<day>\\d{2})[\\ _-]?
+  (?<month>\\d{2})[\\ _-]?
+  (?<year>\\d{4})
   \\z
 """
 
@@ -75,6 +74,21 @@ regex = """
   (?<hour>\\d{2})[h]?
   (?<min>\\d{2})[m]?
   (?<sec>\\d{2})[s]?
+  \\z
+"""
+time = true
+
+[matchers.patterns.whatsapp_image]
+regex = """
+  \\A
+  .+[\\ _-]
+  (?<year>\\d{4})-
+  (?<month>\\d{2})-
+  (?<day>\\d{2})\\s
+  at\\s
+  (?<hour>\\d{2}).
+  (?<min>\\d{2}).
+  (?<sec>\\d{2})
   \\z
 """
 time = true
