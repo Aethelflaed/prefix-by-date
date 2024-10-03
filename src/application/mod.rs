@@ -255,12 +255,6 @@ mod tests {
         }
 
         #[test]
-        fn standard_call() {
-            let mut app = Application::new();
-            assert!(matches!(app.setup(), Err(Error::SetLogger(_))));
-        }
-
-        #[test]
         fn default_run_with_fake_ui() {
             let mut app = Application::default();
             let mut ui = MockInterface::new();

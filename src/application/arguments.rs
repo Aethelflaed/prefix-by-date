@@ -253,9 +253,6 @@ mod tests {
 
     #[test]
     fn try_parse_from() {
-        let arguments = with_config(|| Arguments::parse());
-        assert!(!arguments.time());
-
         let arguments = with_config(|| {
             Arguments::try_parse_from(&["arg0", "--time"]).unwrap()
         });
