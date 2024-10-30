@@ -238,28 +238,21 @@ impl Window {
         };
 
         let mut buttons = Row::with_children(
-            self.state
-                .actions()
-                .iter()
-                .cloned()
-                .filter_map(|action| match action {
-                    Action::Replace(_) => None,
+            self.state.actions().iter().cloned().filter_map(|action| {
+                match action {
+                    Action::Replace(_)
+                    | Action::ViewAlternatives
+                    | Action::Cancel => None,
                     _ => Some(action_button(action).into()),
-                })
-                .collect::<Vec<Element<_>>>(),
+                }
+            }),
         )
         .spacing(10);
 
         buttons = buttons.push(simple_button("Logs", Message::ToggleLog));
 
-        let buttons = container(buttons)
-            .width(Length::Fill)
-            .center_x(Length::Fill)
-            .center_y(Length::Fill);
-
         let mut content = column![message, buttons,]
             .width(Length::Fill)
-            .height(Length::Fill)
             .padding(20)
             .spacing(10);
 

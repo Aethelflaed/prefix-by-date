@@ -29,7 +29,7 @@ impl ui::Interface for Gui {
         let paths = paths.to_owned();
 
         iced::application(Window::title, Window::update, Window::view)
-            .window_size((500., 500.))
+            .window_size((750., 300.))
             .subscription(Window::subscription)
             .theme(Window::theme)
             .run_with(|| Window::new(matchers, paths))
