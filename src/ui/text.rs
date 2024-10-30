@@ -66,12 +66,13 @@ impl<'a> From<&'a Replacement> for ReplacementDisplay<'a> {
 impl Text {
     /// Inidcate whether or not this interface is available
     pub fn available() -> bool {
+        use std::io::{self, IsTerminal};
+
         // If we are connected_to_journal, it means we're not connected to a
         // standard terminal so we can't really present
         !systemd_journal_logger::connected_to_journal() &&
-            // If stdout is not a tty, then we probably don't want interaction
-            // either
-            atty::is(atty::Stream::Stdout)
+            // If stdout is not a terminal, then we probably don't want interaction either
+            std::io::stdout().is_terminal()
     }
 
     #[cfg(test)]
