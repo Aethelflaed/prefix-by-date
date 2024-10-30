@@ -6,9 +6,8 @@ use crate::ui::state::{Current, ProcessingResult, State};
 
 use std::path::PathBuf;
 
-use iced::executor;
-use iced::keyboard::KeyCode;
-use iced::{Application, Color, Command, Element, Length, Subscription, Theme};
+use iced::keyboard::{Key, Modifiers};
+use iced::{Color, Element, Length, Subscription, Task, Theme};
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -18,7 +17,7 @@ pub enum Message {
     ToggleLog,
     ToggleDebug,
     Quit,
-    MaybeShortcut(KeyCode),
+    MaybeShortcut(Key<&'static str>),
 }
 
 pub struct Window {
@@ -39,20 +38,20 @@ enum ProcessingState {
 }
 
 impl Window {
-    fn execute(&mut self, action: Action) -> Command<Message> {
+    fn execute(&mut self, action: Action) -> Task<Message> {
         use Action::*;
 
         match action {
             Customize(file_stem) => {
                 self.state.customize(file_stem);
 
-                focus_on(CUSTOMIZE_INPUT_ID.clone())
+                iced::widget::text_input::focus(CUSTOMIZE_INPUT_ID.clone())
             }
             ConfirmCustomization => {
                 if let Some(rep) = self.state.customized_replacement() {
                     self.send_confirmation(Confirmation::Replace(rep))
                 } else {
-                    Command::none()
+                    Task::none()
                 }
             }
             Accept => self.send_confirmation(Confirmation::Accept),
@@ -67,17 +66,17 @@ impl Window {
         }
     }
 
-    fn send_confirmation(&mut self, conf: Confirmation) -> Command<Message> {
+    fn send_confirmation(&mut self, conf: Confirmation) -> Task<Message> {
         use ProcessingState::Processing;
 
         if !self.state.set_current_resolving(conf.clone()) {
-            return Command::none();
+            return Task::none();
         }
 
         if let Processing(connection) = &mut self.processing_state {
             let mut connection = connection.clone();
 
-            return Command::perform(
+            return Task::perform(
                 async move {
                     connection.send_async(conf).await;
                 },
@@ -85,18 +84,33 @@ impl Window {
             );
         }
 
-        Command::none()
+        Task::none()
     }
 
     fn update_processing_event(
         &mut self,
         event: processing::Event,
-    ) -> Command<Message> {
+    ) -> Task<Message> {
         use processing::Event::*;
 
         log::debug!("Processing event: {:?}", event);
 
         match event {
+            Initialization(mut connection) => {
+                let matchers = self.matchers.clone();
+                let paths = self.paths.clone();
+
+                use processing::InitializationData::*;
+
+                return Task::perform(
+                    async move {
+                        connection.send_async(Matchers(matchers)).await;
+                        connection.send_async(Paths(paths)).await;
+                        connection.send_async(Done).await;
+                    },
+                    |_| Message::Idle,
+                );
+            }
             Ready(connection) => {
                 self.processing_state = ProcessingState::Processing(connection);
             }
@@ -118,21 +132,18 @@ impl Window {
             Finished | Aborted => {
                 self.processing_state = ProcessingState::Finished;
 
-                return iced::window::close();
+                return iced::window::get_latest()
+                    .and_then(iced::window::close);
             }
         }
 
-        Command::none()
+        Task::none()
     }
-}
 
-impl Application for Window {
-    type Message = Message;
-    type Theme = Theme;
-    type Flags = (Vec<Box<dyn Matcher>>, Vec<PathBuf>);
-    type Executor = executor::Default;
-
-    fn new((matchers, paths): Self::Flags) -> (Self, Command<Message>) {
+    pub fn new(
+        matchers: Vec<Box<dyn Matcher>>,
+        paths: Vec<PathBuf>,
+    ) -> (Self, Task<Message>) {
         let len = paths.len();
         (
             Window {
@@ -143,30 +154,32 @@ impl Application for Window {
                 log: false,
                 debug: false,
             },
-            Command::none(),
+            Task::none(),
         )
     }
 
-    fn title(&self) -> String {
+    pub fn title(&self) -> String {
         String::from("Prefix by date")
     }
 
-    fn update(&mut self, message: Message) -> Command<Message> {
+    pub fn update(&mut self, message: Message) -> Task<Message> {
         match message {
-            Message::Idle => Command::none(),
+            Message::Idle => Task::none(),
             Message::Processing(event) => self.update_processing_event(event),
             Message::ToggleLog => {
                 self.log = !self.log;
 
-                Command::none()
+                Task::none()
             }
             Message::ToggleDebug => {
                 self.debug = !self.debug;
 
-                Command::none()
+                Task::none()
             }
             Message::Action(action) => self.execute(action),
-            Message::Quit => iced::window::close(),
+            Message::Quit => {
+                iced::window::get_latest().and_then(iced::window::close)
+            }
             Message::MaybeShortcut(key_code) => {
                 let predicate = |action: &&Action| {
                     if let Some(code) = iced_shortcut_for(action) {
@@ -181,24 +194,20 @@ impl Application for Window {
                 {
                     self.execute(action)
                 } else {
-                    Command::none()
+                    Task::none()
                 }
             }
         }
     }
 
-    fn subscription(&self) -> Subscription<Message> {
+    pub fn subscription(&self) -> Subscription<Message> {
         Subscription::batch(vec![
-            processing::connect(&self.matchers, &self.paths)
-                .map(Message::Processing),
-            iced::subscription::events_with(|event, status| {
-                filter_events(event, status)
-            }),
+            Subscription::run(processing::connect).map(Message::Processing),
+            iced::keyboard::on_key_press(handle_hotkey),
         ])
     }
 
-    fn view(&self) -> Element<Message> {
-        use iced::alignment::Alignment;
+    pub fn view(&self) -> Element<Message> {
         use iced::widget::{column, container, progress_bar, row, text, Row};
 
         let message: Element<_> = match &self.state.current() {
@@ -243,8 +252,10 @@ impl Application for Window {
 
         buttons = buttons.push(simple_button("Logs", Message::ToggleLog));
 
-        let buttons =
-            container(buttons).width(Length::Fill).center_x().center_y();
+        let buttons = container(buttons)
+            .width(Length::Fill)
+            .center_x(Length::Fill)
+            .center_y(Length::Fill);
 
         let mut content = column![message, buttons,]
             .width(Length::Fill)
@@ -271,11 +282,9 @@ impl Application for Window {
                                         )),
                                         text(rep.new_file_name()),
                                     ]
-                                    .align_items(Alignment::Center)
                                     .spacing(10)
                                 })
-                                .map(Element::from)
-                                .collect(),
+                                .map(Element::from),
                         )
                         .spacing(10),
                     )
@@ -311,7 +320,7 @@ impl Application for Window {
         content
     }
 
-    fn theme(&self) -> Theme {
+    pub fn theme(&self) -> Theme {
         Theme::Dark
     }
 }
@@ -320,46 +329,29 @@ use once_cell::sync::Lazy;
 static CUSTOMIZE_INPUT_ID: Lazy<iced::widget::text_input::Id> =
     Lazy::new(iced::widget::text_input::Id::unique);
 
-fn focus_on<T>(id: T) -> Command<Message>
-where
-    T: Into<iced::advanced::widget::Id>,
-{
-    Command::widget(iced::advanced::widget::operation::focusable::focus(
-        id.into(),
-    ))
-}
+fn handle_hotkey(key_code: Key, modifiers: Modifiers) -> Option<Message> {
+    let key_code = key_code.as_ref();
 
-fn filter_events(
-    event: iced::event::Event,
-    status: iced::event::Status,
-) -> Option<Message> {
-    use iced::{
-        event::Status::Ignored, keyboard::Event::KeyPressed, Event::Keyboard,
-    };
+    // Whatever the context, ctrl-Q quits the app
+    if modifiers.control() && key_code == Key::Character("q") {
+        return Some(Message::Quit);
+    }
 
-    if let Keyboard(KeyPressed {
-        key_code,
-        modifiers,
-    }) = event
-    {
-        // Whatever the context, ctrl-Q quits the app
-        if modifiers.control() && key_code == KeyCode::Q {
-            return Some(Message::Quit);
+    // Keyboard shortcuts
+    if modifiers.is_empty() {
+        match key_code {
+            Key::Character("l") => return Some(Message::ToggleLog),
+            Key::Character("d") => return Some(Message::ToggleDebug),
+            _ => {}
         }
 
-        // Keyboard shortcuts
-        if status == Ignored && modifiers.is_empty() {
-            match key_code {
-                KeyCode::L => return Some(Message::ToggleLog),
-                KeyCode::D => return Some(Message::ToggleDebug),
-                _ => {}
-            }
+        let some_key_code = Some(key_code.clone());
 
-            if Action::all()
-                .iter()
-                .any(|action| iced_shortcut_for(action) == Some(key_code))
-            {
-                return Some(Message::MaybeShortcut(key_code));
+        for action in Action::all() {
+            let shortcut = iced_shortcut_for(&action);
+
+            if shortcut == some_key_code {
+                return shortcut.map(|c| Message::MaybeShortcut(c));
             }
         }
     }
@@ -376,9 +368,9 @@ fn scrollable_logs(
             logs.iter()
                 .rev()
                 .cloned()
+                .map(|result| result.to_string())
                 .map(text)
-                .map(Element::from)
-                .collect(),
+                .map(Element::from),
         )
         .width(Length::Fill),
     )
@@ -388,17 +380,9 @@ fn simple_button(
     label: &str,
     message: Message,
 ) -> iced::widget::Button<'_, Message> {
-    use iced::{
-        alignment,
-        widget::{button, text},
-    };
+    use iced::widget::{button, text};
 
-    button(
-        text(label)
-            .width(Length::Fill)
-            .horizontal_alignment(alignment::Horizontal::Center),
-    )
-    .on_press(message)
+    button(text(label).width(Length::Fill)).on_press(message)
 }
 
 fn customize(string: &str) -> Element<'_, Message> {
@@ -412,17 +396,17 @@ fn customize(string: &str) -> Element<'_, Message> {
         .into()
 }
 
-fn iced_shortcut_for(action: &Action) -> Option<KeyCode> {
+fn iced_shortcut_for(action: &Action) -> Option<Key<&'static str>> {
     match action {
-        Action::Accept => Some(KeyCode::Y),
-        Action::Always => Some(KeyCode::A),
-        Action::Customize(_) => Some(KeyCode::C),
+        Action::Accept => Some(Key::<&str>::Character("y")),
+        Action::Always => Some(Key::<&str>::Character("a")),
+        Action::Customize(_) => Some(Key::<&str>::Character("c")),
         Action::ViewAlternatives => None,
         Action::Replace(_) => None,
-        Action::Skip => Some(KeyCode::S),
-        Action::Refuse => Some(KeyCode::R),
-        Action::Ignore => Some(KeyCode::I),
-        Action::Abort => Some(KeyCode::Q),
+        Action::Skip => Some(Key::<&str>::Character("s")),
+        Action::Refuse => Some(Key::<&str>::Character("r")),
+        Action::Ignore => Some(Key::<&str>::Character("i")),
+        Action::Abort => Some(Key::<&str>::Character("q")),
         Action::Cancel => None,
         Action::ConfirmCustomization => None,
     }

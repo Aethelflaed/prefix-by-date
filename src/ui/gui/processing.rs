@@ -8,17 +8,18 @@ use std::cell::RefCell;
 use std::path::{Path, PathBuf};
 
 use iced::futures;
-use iced::subscription::{self, Subscription};
 
 use futures::channel::mpsc;
 use futures::executor::block_on;
 use futures::lock::Mutex;
 use futures::sink::SinkExt;
 use futures::stream::FusedStream;
+use futures::Stream;
 use futures::StreamExt;
 
 #[derive(Debug, Clone)]
 pub enum Event {
+    Initialization(Connection<InitializationData>),
     Ready(Connection),
     Processing(PathBuf),
     ProcessingOk(Replacement),
@@ -29,105 +30,116 @@ pub enum Event {
     Aborted,
 }
 
-pub fn connect(
-    matchers: &[Box<dyn Matcher>],
-    paths: &[PathBuf],
-) -> Subscription<Event> {
-    struct Connect;
+#[derive(Debug, Clone)]
+pub enum InitializationData {
+    Matchers(Vec<Box<dyn Matcher>>),
+    Paths(Vec<PathBuf>),
+    Done,
+}
 
-    let matchers = matchers.to_owned();
-    let paths = paths.to_owned();
+pub fn connect() -> impl Stream<Item = Event> {
+    iced::stream::channel(100, |mut output| async move {
+        let (gui_tx, mut gui_rx) = mpsc::channel::<InitializationData>(100);
+        output
+            .send(Event::Initialization(Connection(gui_tx)))
+            .await
+            .expect("Send connection to UI");
 
-    subscription::channel(
-        std::any::TypeId::of::<Connect>(),
-        100,
-        |mut output| async move {
-            // Create channel to communicate the confirmation back
-            // to the GUI
-            let (conf_tx, mut conf_rx) = mpsc::channel(100);
+        let mut matchers = Vec::<Box<dyn Matcher>>::new();
+        let mut paths = Vec::<PathBuf>::new();
 
-            // Send the conf_tx back to the application
-            output
-                .send(Event::Ready(Connection(conf_tx)))
-                .await
-                .expect("Send connection to UI");
+        loop {
+            match gui_rx.next().await {
+                Some(InitializationData::Matchers(m)) => matchers = m,
+                Some(InitializationData::Paths(p)) => paths = p,
+                Some(InitializationData::Done) => break,
+                None => panic!("Connection to UI broke during initialization"),
+            }
+        }
 
-            let (mut event_tx, mut event_rx) = mpsc::channel(100);
+        // Create channel to communicate the confirmation back
+        // to the GUI
+        let (gui_tx, mut gui_rx) = mpsc::channel::<Confirmation>(100);
 
-            // We are ready to receive confirmation messages.
-            // Now we can create the processing on another thread
-            std::thread::spawn(move || {
-                let front =
-                    ProcessingFront::new(&mut conf_rx, event_tx.clone());
-                let result =
-                    match Processing::new(&front, &matchers, &paths).run() {
-                        Ok(_) => Event::Finished,
-                        Err(_) => Event::Aborted,
-                    };
+        // Send the gui_tx back to the application
+        output
+            .send(Event::Ready(Connection(gui_tx)))
+            .await
+            .expect("Send connection to UI");
 
-                if !event_tx.is_closed() {
-                    block_on(event_tx.send(result))
-                        .expect("Send message on channel");
-                }
-            });
+        let (mut worker_tx, mut worker_rx) = mpsc::channel::<Event>(100);
 
-            // Now we loop for events to send to the GUI
-            loop {
-                // The processing thread might finish, which would drop all
-                // the event_tx, so we need to check if it's terminated here
-                if event_rx.is_terminated() {
-                    break;
-                }
+        // We are ready to receive confirmation messages.
+        // Now we can create the processing on another thread
+        std::thread::spawn(move || {
+            let front = ProcessingFront::new(&mut gui_rx, worker_tx.clone());
+            let result = match Processing::new(&front, &matchers, &paths).run()
+            {
+                Ok(_) => Event::Finished,
+                Err(_) => Event::Aborted,
+            };
 
-                if let Some(event) = event_rx.next().await {
-                    output.send(event).await.expect("Send message to UI");
-                }
+            if !worker_tx.is_closed() {
+                block_on(worker_tx.send(result))
+                    .expect("Send message on channel");
+            }
+        });
+
+        // Now we loop for events to send to the GUI
+        loop {
+            // The processing thread might finish, which would drop all
+            // the worker_tx, so we need to check if it's terminated here
+            if worker_rx.is_terminated() {
+                break;
             }
 
-            loop {
-                // subscription::channel need an infallible future, so we
-                // just loop indefinitely.
-                // We sleep a whole day to yield control to the executor
-                tokio::time::sleep(tokio::time::Duration::from_secs(86_400))
-                    .await;
+            if let Some(event) = worker_rx.next().await {
+                output.send(event).await.expect("Send message to UI");
             }
-        },
-    )
+        }
+
+        loop {
+            // channel need an infallible future, so we
+            // just loop indefinitely.
+            // We sleep a whole day to yield control to the executor
+            tokio::time::sleep(tokio::time::Duration::from_secs(86_400)).await;
+        }
+    })
 }
 
 #[derive(Debug, Clone)]
-pub struct Connection(mpsc::Sender<Confirmation>);
+pub struct Connection<T = Confirmation>(mpsc::Sender<T>);
 
-impl Connection {
-    pub async fn send_async(&mut self, confirmation: Confirmation) {
+impl<T> Connection<T> {
+    pub async fn send_async(&mut self, payload: T) {
         self.0
-            .send(confirmation)
+            .send(payload)
             .await
             .expect("Send confirmation to processing");
     }
 }
 
 struct ProcessingFront<'a> {
-    conf_rx: Mutex<&'a mut mpsc::Receiver<Confirmation>>,
-    event_tx: RefCell<mpsc::Sender<Event>>,
+    gui_rx: Mutex<&'a mut mpsc::Receiver<Confirmation>>,
+    worker_tx: RefCell<mpsc::Sender<Event>>,
 }
 
 impl<'a> ProcessingFront<'a> {
     pub fn new(
-        conf_rx: &'a mut mpsc::Receiver<Confirmation>,
-        event_tx: mpsc::Sender<Event>,
+        gui_rx: &'a mut mpsc::Receiver<Confirmation>,
+        worker_tx: mpsc::Sender<Event>,
     ) -> ProcessingFront<'a> {
         Self {
-            conf_rx: Mutex::new(conf_rx),
-            event_tx: RefCell::new(event_tx),
+            gui_rx: Mutex::new(gui_rx),
+            worker_tx: RefCell::new(worker_tx),
         }
     }
 
     // Only return false if the channel is closed
     fn send(&self, event: Event) -> bool {
-        let mut event_tx = self.event_tx.borrow_mut();
-        if !event_tx.is_closed() {
-            block_on(event_tx.send(event))
+        let mut worker_tx = self.worker_tx.borrow_mut();
+        if !worker_tx.is_closed() {
+            block_on(worker_tx.send(event))
                 .expect("Send event from processing thread");
 
             true
@@ -159,7 +171,7 @@ impl<'a> Communication for ProcessingFront<'a> {
             return Confirmation::Abort;
         }
 
-        let receiving = async { self.conf_rx.lock().await.next().await };
+        let receiving = async { self.gui_rx.lock().await.next().await };
         // If we don't get a confirmation, it means the UI is quitting, so we
         // abort
         block_on(receiving).unwrap_or(Confirmation::Abort)
@@ -177,8 +189,7 @@ impl<'a> Communication for ProcessingFront<'a> {
                     return Err(Error::Abort);
                 }
 
-                let receiving =
-                    async { self.conf_rx.lock().await.next().await };
+                let receiving = async { self.gui_rx.lock().await.next().await };
                 // If we don't get a confirmation, it means the UI is
                 // quitting, so we abort
                 let conf = match block_on(receiving) {

@@ -9,6 +9,8 @@ use std::path::PathBuf;
 mod processing;
 mod window;
 
+use window::Window;
+
 pub struct Gui {}
 
 impl Gui {
@@ -23,17 +25,15 @@ impl ui::Interface for Gui {
         matchers: &[Box<dyn Matcher>],
         paths: &[PathBuf],
     ) -> Result<()> {
-        use iced::{Application, Settings};
+        let matchers = matchers.to_owned();
+        let paths = paths.to_owned();
 
-        window::Window::run(Settings {
-            flags: (matchers.to_owned(), paths.to_owned()),
-            window: iced::window::Settings {
-                size: (500, 500),
-                ..Default::default()
-            },
-            ..Settings::default()
-        })
-        .expect("Window to start");
+        iced::application(Window::title, Window::update, Window::view)
+            .window_size((500., 500.))
+            .subscription(Window::subscription)
+            .theme(Window::theme)
+            .run_with(|| Window::new(matchers, paths))
+            .expect("Window to start");
         Ok(())
     }
 }

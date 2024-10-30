@@ -27,10 +27,7 @@ impl Env {
 fn empty() -> Result<()> {
     let env = Env::new()?;
 
-    env.command()?
-        .assert()
-        .success()
-        .stderr(str::is_empty());
+    env.command()?.assert().success().stderr(str::is_empty());
 
     Ok(())
 }

@@ -1,5 +1,6 @@
 use crate::replacement::Replacement;
 
+use std::fmt;
 use std::path::Path;
 
 use chrono::{DateTime, Local};
@@ -51,6 +52,12 @@ pub trait Matcher: DynClone + Send {
     /// Indicates if a replacement produced by this matcher can be accepted
     /// without user confirmation or not.
     fn auto_accept(&self) -> bool;
+}
+
+impl fmt::Debug for dyn Matcher {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        write!(f, "{}", self.name())
+    }
 }
 
 dyn_clone::clone_trait_object!(Matcher);
