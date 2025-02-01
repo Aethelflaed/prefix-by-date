@@ -38,13 +38,24 @@ regex = """
   \\z
 """
 
-[matchers.patterns.date_infix]
+[matchers.patterns.ymd_date_infix]
 regex = """
   \\A
   (?<start>.+)[\\ _-]
   (?<year>\\d{4})[-]?
   (?<month>\\d{2})[-]?
   (?<day>\\d{2})[\\ _-]
+  (?<end>.+)
+  \\z
+"""
+
+[matchers.patterns.dmy_date_infix]
+regex = """
+  \\A
+  (?<start>.+)[\\ _-]
+  (?<day>\\d{2})[-]?
+  (?<month>\\d{2})[-]?
+  (?<year>\\d{4})[\\ _-]
   (?<end>.+)
   \\z
 """
