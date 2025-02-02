@@ -5,6 +5,7 @@ export PREFIX_BY_DATE_LOG=error,prefix_by_date=debug
 install: files/prefix-by-date.desktop files/config.toml
 	mkdir -p ~/.local/share/kio/servicemenus
 	cp files/prefix-by-date.desktop ~/.local/share/kio/servicemenus/prefix-by-date.desktop
+	sed -i -e 's,INSTALL_DIR,$(PWD)/target/debug,' ~/.local/share/kio/servicemenus/prefix-by-date.desktop
 	update-desktop-database ~/.local/share/kio/servicemenus
 	mkdir -p ~/.config/prefix-by-date
 	cp files/config.toml ~/.config/prefix-by-date/
