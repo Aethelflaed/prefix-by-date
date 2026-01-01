@@ -194,9 +194,9 @@ impl Arguments {
 fn config_home() -> PathBuf {
     match std::env::var("PREFIX_BY_DATE_CONFIG") {
         Ok(val) if !val.is_empty() => PathBuf::from(val),
-        _ => xdg::BaseDirectories::with_prefix(env!("CARGO_PKG_NAME"))
-            .unwrap()
-            .get_config_home(),
+        _ => dirs::config_dir()
+            .expect("User config directory to be resolvable")
+            .join(env!("CARGO_PKG_NAME")),
     }
 }
 
@@ -220,9 +220,8 @@ mod tests {
     #[test]
     fn config_home_default() {
         temp_env::with_var("PREFIX_BY_DATE_CONFIG", None::<&str>, || {
-            let xdg_dirs =
-                xdg::BaseDirectories::with_prefix("prefix-by-date").unwrap();
-            assert_eq!(xdg_dirs.get_config_home(), config_home());
+            let dir = dirs::config_dir().unwrap().join("prefix-by-date");
+            assert_eq!(dir, config_home());
         });
     }
 

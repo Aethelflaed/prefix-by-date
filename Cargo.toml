@@ -17,7 +17,6 @@ log = "0.4.22"
 chrono = { version = "0.4.38", features = ["clock"] }
 regex = "1.11.1"
 toml = { version = "0.8.19", features = ["preserve_order"] }
-xdg = "2.5.2"
 dyn-clone = "1.0.17"
 diff = "0.1.13"
 
@@ -29,6 +28,7 @@ tokio = { version = "1.41.0", optional = true, features = ["time"] }
 notify-rust = { version = "4.11.3", optional = true }
 once_cell = { version = "1.20.2", optional = true }
 anyhow = "1.0.91"
+dirs = "6.0.0"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 systemd-journal-logger = { version = "2.2.0" }
