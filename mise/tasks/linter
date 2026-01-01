@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+#MISE description="Format and lint"
+#MISE depends=["rust:linter"]
