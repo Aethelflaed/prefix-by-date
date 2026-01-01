@@ -1,3 +1,5 @@
+#![windows_subsystem = "windows"]
+
 mod application;
 mod matcher;
 mod processing;
