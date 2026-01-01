@@ -207,7 +207,7 @@ impl Window {
         ])
     }
 
-    pub fn view(&self) -> Element<Message> {
+    pub fn view(&self) -> Element<'_, Message> {
         use iced::widget::{column, container, progress_bar, row, text, Row};
 
         let message: Element<_> = match &self.state.current() {
@@ -344,7 +344,7 @@ fn handle_hotkey(key_code: Key, modifiers: Modifiers) -> Option<Message> {
             let shortcut = iced_shortcut_for(&action);
 
             if shortcut == some_key_code {
-                return shortcut.map(|c| Message::MaybeShortcut(c));
+                return shortcut.map(Message::MaybeShortcut);
             }
         }
     }

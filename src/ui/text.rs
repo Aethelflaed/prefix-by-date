@@ -66,7 +66,7 @@ impl<'a> From<&'a Replacement> for ReplacementDisplay<'a> {
 impl Text {
     /// Inidcate whether or not this interface is available
     pub fn available() -> bool {
-        use std::io::{self, IsTerminal};
+        use std::io::IsTerminal;
 
         // If we are connected_to_journal, it means we're not connected to a
         // standard terminal so we can't really present
