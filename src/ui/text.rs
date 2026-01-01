@@ -65,6 +65,7 @@ impl<'a> From<&'a Replacement> for ReplacementDisplay<'a> {
 
 impl Text {
     /// Inidcate whether or not this interface is available
+    #[cfg(target_os = "linux")]
     pub fn available() -> bool {
         use std::io::IsTerminal;
 
@@ -73,6 +74,15 @@ impl Text {
         !systemd_journal_logger::connected_to_journal() &&
             // If stdout is not a terminal, then we probably don't want interaction either
             std::io::stdout().is_terminal()
+    }
+
+    /// Inidcate whether or not this interface is available
+    #[cfg(not(target_os = "linux"))]
+    pub fn available() -> bool {
+        use std::io::IsTerminal;
+
+        // If stdout is not a terminal, then we probably don't want interaction
+        std::io::stdout().is_terminal()
     }
 
     #[cfg(test)]

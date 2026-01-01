@@ -115,6 +115,7 @@ impl Application {
         }
     }
 
+    #[cfg(target_os = "linux")]
     fn setup_log(&mut self) -> LogResult {
         use env_logger::{Builder, Env};
         use systemd_journal_logger::{connected_to_journal, JournalLog};
@@ -141,6 +142,24 @@ impl Application {
                     .parse_env(env),
             )
         }
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    fn setup_log(&mut self) -> LogResult {
+        use env_logger::{Builder, Env};
+
+        let name = String::from(env!("CARGO_PKG_NAME"))
+            .replace('-', "_")
+            .to_uppercase();
+        let env = Env::new()
+            .filter(format!("{}_LOG", name))
+            .write_style(format!("{}_LOG_STYLE", name));
+
+        self.ui.setup_logger(
+            Builder::new()
+                .filter_level(log::LevelFilter::Trace)
+                .parse_env(env),
+        )
     }
 }
 
