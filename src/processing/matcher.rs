@@ -19,7 +19,7 @@ impl<'a> From<&'a Box<dyn Matcher>> for ProcessingMatcher<'a> {
     }
 }
 
-impl<'a> ProcessingMatcher<'a> {
+impl ProcessingMatcher<'_> {
     pub fn check(&self, path: &Path) -> Option<Replacement> {
         self.matcher.check(path)
     }

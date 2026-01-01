@@ -1,5 +1,3 @@
-#![cfg(test)]
-
 pub use test_log::test;
 
 pub use pretty_assertions::{assert_eq, assert_ne};
@@ -29,7 +27,7 @@ where
         temp_env::with_var(
             "PREFIX_BY_DATE_CONFIG",
             Some(temp.path().as_os_str()),
-            || function(&temp),
+            || function(temp),
         )
     })
 }

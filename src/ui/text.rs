@@ -37,7 +37,7 @@ struct ReplacementDisplay<'a> {
     replacement: &'a Replacement,
 }
 
-impl<'a> fmt::Display for ReplacementDisplay<'a> {
+impl fmt::Display for ReplacementDisplay<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use dialoguer::console::style;
         use diff::Result::*;
@@ -224,7 +224,7 @@ struct Resolver<'a> {
     action: Option<Action>,
 }
 
-impl<'a> Resolver<'a> {
+impl Resolver<'_> {
     fn resolve(&mut self) -> Confirmation {
         loop {
             if let Some(action) = self.action.take() {

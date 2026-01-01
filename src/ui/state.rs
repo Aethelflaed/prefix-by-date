@@ -335,9 +335,11 @@ mod tests {
         let path = PathBuf::from("/test");
 
         for current in CurrentIterator::default() {
-            let mut state = State::default();
-            state.current = current.clone();
-            state.actions = vec![Action::Cancel];
+            let mut state = State {
+                current: current.clone(),
+                actions: vec![Action::Cancel],
+                ..State::default()
+            };
             state.set_current_path(path.clone());
 
             match current {
@@ -358,9 +360,11 @@ mod tests {
         let replacement = Replacement::try_from(path.as_path()).unwrap();
 
         for current in CurrentIterator::default() {
-            let mut state = State::default();
-            state.current = current.clone();
-            state.actions = vec![Action::Cancel];
+            let mut state = State {
+                current: current.clone(),
+                actions: vec![Action::Cancel],
+                ..State::default()
+            };
             state.set_current_confirm(replacement.clone(), &[]);
 
             match current {
@@ -388,8 +392,10 @@ mod tests {
         replacement.new_file_stem = String::from("2024-01-20 foo");
         let matchers = [matchers::ymd_boxed(), matchers::today_boxed()];
 
-        let mut state = State::default();
-        state.current = Current::Path(PathBuf::default());
+        let mut state = State {
+            current: Current::Path(PathBuf::default()),
+            ..State::default()
+        };
         state.set_current_confirm(replacement.clone(), &matchers);
 
         assert!(matches!(state.current, Current::Confirm(_)));
@@ -406,9 +412,11 @@ mod tests {
         let replacement = Replacement::default();
 
         for current in CurrentIterator::default() {
-            let mut state = State::default();
-            state.current = current.clone();
-            state.actions = vec![Action::Cancel];
+            let mut state = State {
+                current: current.clone(),
+                actions: vec![Action::Cancel],
+                ..State::default()
+            };
             state.set_current_rescue(replacement.clone());
 
             match current {
@@ -434,9 +442,11 @@ mod tests {
         let conf = Confirmation::Accept;
 
         for current in CurrentIterator::default() {
-            let mut state = State::default();
-            state.current = current.clone();
-            state.actions = Action::determine_for(&current);
+            let mut state = State {
+                current: current.clone(),
+                actions: Action::determine_for(&current),
+                ..State::default()
+            };
             let resolving = state.set_current_resolving(conf.clone());
 
             match current {
@@ -474,9 +484,11 @@ mod tests {
         let replacement = Replacement::default();
 
         for current in CurrentIterator::default() {
-            let mut state = State::default();
-            state.current = current.clone();
-            state.actions = vec![Action::Cancel];
+            let mut state = State {
+                current: current.clone(),
+                actions: vec![Action::Cancel],
+                ..State::default()
+            };
             state.set_current_success(replacement.clone());
 
             match current {
@@ -503,9 +515,11 @@ mod tests {
         let error = String::default();
 
         for current in CurrentIterator::default() {
-            let mut state = State::default();
-            state.current = current.clone();
-            state.actions = vec![Action::Cancel];
+            let mut state = State {
+                current: current.clone(),
+                actions: vec![Action::Cancel],
+                ..State::default()
+            };
             state.set_current_failure(path.clone(), error.clone());
 
             match current {
@@ -534,9 +548,11 @@ mod tests {
         let string = String::from("foo");
 
         for current in CurrentIterator::default() {
-            let mut state = State::default();
-            state.current = current.clone();
-            state.actions = vec![Action::Cancel];
+            let mut state = State {
+                current: current.clone(),
+                actions: vec![Action::Cancel],
+                ..State::default()
+            };
             state.customize(string.clone());
 
             match current {
@@ -562,9 +578,11 @@ mod tests {
         let string = String::from("foo");
 
         for current in CurrentIterator::default() {
-            let mut state = State::default();
-            state.current = current.clone();
-            state.actions = vec![Action::Cancel];
+            let mut state = State {
+                current: current.clone(),
+                actions: vec![Action::Cancel],
+                ..State::default()
+            };
             if let Some(change) = state.change_mut() {
                 change.customize = Some(string.clone());
             }
@@ -588,8 +606,10 @@ mod tests {
     #[test]
     fn customized_replacement() {
         for current in CurrentIterator::default() {
-            let mut state = State::default();
-            state.current = current.clone();
+            let state = State {
+                current: current.clone(),
+                ..State::default()
+            };
 
             assert_eq!(state.customized_replacement(), None);
         }
@@ -597,8 +617,11 @@ mod tests {
         let string = String::from("foo");
 
         for current in CurrentIterator::default() {
-            let mut state = State::default();
-            state.current = current.clone();
+            let mut state = State {
+                current: current.clone(),
+                ..State::default()
+            };
+
             if let Some(change) = state.change_mut() {
                 change.customize = Some(string.clone());
             }

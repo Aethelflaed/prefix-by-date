@@ -149,7 +149,7 @@ impl<'a> ProcessingFront<'a> {
     }
 }
 
-impl<'a> Reporter for ProcessingFront<'a> {
+impl Reporter for ProcessingFront<'_> {
     fn setup(&self, _count: usize) {}
     fn processing(&self, path: &Path) {
         self.send(Event::Processing(path.to_path_buf()));
@@ -165,7 +165,7 @@ impl<'a> Reporter for ProcessingFront<'a> {
     }
 }
 
-impl<'a> Communication for ProcessingFront<'a> {
+impl Communication for ProcessingFront<'_> {
     fn confirm(&self, replacement: &Replacement) -> Confirmation {
         if !self.send(Event::Confirm(replacement.clone())) {
             return Confirmation::Abort;

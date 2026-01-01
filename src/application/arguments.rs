@@ -245,36 +245,33 @@ mod tests {
 
     #[test]
     fn invalid_cli_args() {
-        assert!(matches!(
-            Arguments::try_parse_from(&["arg0", "--foo"]),
-            Err(_)
-        ));
+        assert!(Arguments::try_parse_from(["arg0", "--foo"]).is_err());
     }
 
     #[test]
     fn try_parse_from() {
         let arguments = with_config(|| {
-            Arguments::try_parse_from(&["arg0", "--time"]).unwrap()
+            Arguments::try_parse_from(["arg0", "--time"]).unwrap()
         });
         assert!(arguments.time());
 
         let arguments = with_config(|| {
-            Arguments::try_parse_from(&["arg0", "--no-time"]).unwrap()
+            Arguments::try_parse_from(["arg0", "--no-time"]).unwrap()
         });
         assert!(!arguments.time());
 
         let arguments = with_config(|| {
-            Arguments::try_parse_from(&["arg0", "--today"]).unwrap()
+            Arguments::try_parse_from(["arg0", "--today"]).unwrap()
         });
         assert!(arguments.today());
 
         let arguments = with_config(|| {
-            Arguments::try_parse_from(&["arg0", "--metadata", "both"]).unwrap()
+            Arguments::try_parse_from(["arg0", "--metadata", "both"]).unwrap()
         });
         assert!(matches!(arguments.metadata(), Metadata::Both));
 
         let arguments = with_config(|| {
-            Arguments::try_parse_from(&["arg0", "--metadata=created"]).unwrap()
+            Arguments::try_parse_from(["arg0", "--metadata=created"]).unwrap()
         });
         assert!(matches!(arguments.metadata(), Metadata::Created));
     }
@@ -282,7 +279,7 @@ mod tests {
     #[test]
     fn parse_with_cli_config() {
         let mut arguments = with_config_dir(|dir| {
-            Arguments::try_parse_from(&[
+            Arguments::try_parse_from([
                 "arg0",
                 "-C",
                 dir.path().to_str().unwrap(),
@@ -297,9 +294,9 @@ mod tests {
                     "String predicate failed for: {string:?}"
                 );
             }
-            Some(error) => assert!(false, "Unknown error: {error:?}"),
+            Some(error) => panic!("Unknown error: {error:?}"),
             None => {
-                assert!(false, "An error was expected but none was received")
+                panic!("An error was expected but none was received")
             }
         };
     }
@@ -307,7 +304,7 @@ mod tests {
     #[test]
     fn paths() {
         let arguments = with_config(|| {
-            Arguments::try_parse_from(&["arg0", "foo", "bar"]).unwrap()
+            Arguments::try_parse_from(["arg0", "foo", "bar"]).unwrap()
         });
 
         assert_eq!(
@@ -335,11 +332,8 @@ mod tests {
                         "String predicate failed for: {string:?}"
                     );
                 }
-                Some(error) => assert!(false, "Unknown error: {error:?}"),
-                None => assert!(
-                    false,
-                    "An error was expected but none was received"
-                ),
+                Some(error) => panic!("Unknown error: {error:?}"),
+                None => panic!("An error was expected but none was received"),
             };
         }
 
@@ -354,11 +348,8 @@ mod tests {
                         "String predicate failed for: {string:?}"
                     );
                 }
-                Some(error) => assert!(false, "Unknown error: {error:?}"),
-                None => assert!(
-                    false,
-                    "An error was expected but none was received"
-                ),
+                Some(error) => panic!("Unknown error: {error:?}"),
+                None => panic!("An error was expected but none was received"),
             };
         }
 

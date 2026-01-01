@@ -292,7 +292,7 @@ mod tests {
                 .withf(|e| matches!(e, Error::NoMatch(_)))
                 .times(1)
                 .in_sequence(&mut seq)
-                .returning(|e| Err(e));
+                .returning(Err);
             interface
                 .expect_processing_err()
                 .withf(|_, e| matches!(e, Error::NoMatch(_)))
@@ -672,7 +672,7 @@ mod tests {
                 .expect_rescue()
                 .times(1)
                 .in_sequence(&mut seq)
-                .returning(|e| Err(e));
+                .returning(Err);
             interface
                 .expect_processing_err()
                 .withf(|_, e| matches!(e, Error::NoMatch(_)))
