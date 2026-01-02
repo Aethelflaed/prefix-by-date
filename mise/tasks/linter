@@ -1,3 +1,9 @@
 #!/usr/bin/env bash
 #MISE description="Format and lint"
-#MISE depends=["rust:linter"]
+
+set -eu -o pipefail
+
+{
+cargo fmt -- --color=always
+cargo clippy --all-targets --color=always 2>&1 
+} | less -R -F

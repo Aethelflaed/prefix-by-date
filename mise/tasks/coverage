@@ -1,3 +1,15 @@
 #!/usr/bin/env bash
 #MISE description="Run tests with coverage report"
-#MISE depends=["rust:coverage"]
+
+set -eu -o pipefail
+
+if ! command -v cargo-tarpaulin 2>&1 > /dev/null ; then
+  echo "cargo-tarpaulin not found and it is required"
+  echo
+  # Make sure stdout is flushed or `read` might be invoked before any output is printed
+  stdbuf -o0 echo "Press any key to run 'cargo install cargo-tarpaulin' or ctrl-c to cancel"
+  read
+  cargo install cargo-tarpaulin
+fi
+
+cargo tarpaulin --out Html --output-dir coverage/
