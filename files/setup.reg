@@ -4,7 +4,15 @@ Windows Registry Editor Version 5.00
 [HKEY_CURRENT_USER\Software\Classes\*\shell\PrefixByDate]
 "MUIVerb"="Prefix by date"
 "MultiSelectModel"="Player"
- 
+
 [HKEY_CURRENT_USER\Software\Classes\*\shell\PrefixByDate\command]
 ;From https://github.com/zenden2k/context-menu-launcher
 @="\"C:\\Users\\Jaffa\\bin\\singleinstance.exe\" \"%1\" \"C:\\Users\\Jaffa\\bin\\prefix-by-date.exe\" -i gui $files"
+
+[HKEY_CURRENT_USER\Software\Classes\*\shell\PrefixByDateAndTime]
+"MUIVerb"="Prefix by date and time"
+"MultiSelectModel"="Player"
+
+[HKEY_CURRENT_USER\Software\Classes\*\shell\PrefixByDateAndTime\command]
+;From https://github.com/zenden2k/context-menu-launcher
+@="\"C:\\Users\\Jaffa\\bin\\singleinstance.exe\" \"%1\" \"C:\\Users\\Jaffa\\bin\\prefix-by-date.exe\" -i gui --time $files"
