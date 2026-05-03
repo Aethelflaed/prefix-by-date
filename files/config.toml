@@ -63,14 +63,14 @@ regex = """
 [matchers.patterns.date_time_infix]
 regex = """
   \\A
-  (?<start>.+)[\\ _-]
+  (?<start>.*)[\\ _-]?
   (?<year>\\d{4})[-]?
   (?<month>\\d{2})[-]?
   (?<day>\\d{2})[\\ _-]
   (?<hour>\\d{2})[h]?
   (?<min>\\d{2})[m]?
   (?<sec>\\d{2})[s\\ _-]?
-  (?<end>.+)
+  (?<end>.*)
   \\z
 """
 time = true
