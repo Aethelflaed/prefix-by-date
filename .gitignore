@@ -12,3 +12,4 @@ Cargo.lock
 
 tmp/
 coverage/
+mise.local.toml

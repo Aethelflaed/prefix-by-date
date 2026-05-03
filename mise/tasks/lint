@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+#MISE description="Format and lint"
+
+set -eu -o pipefail
+
+if [ "${1:-}" = "pedantic" ]; then
+  {
+    cargo fmt -- --color=always
+    cargo clippy \
+      --all-targets \
+      --color=always -- \
+      -D clippy::pedantic \
+      -D clippy::nursery \
+      2>&1
+  } | less -R -F
+else
+  {
+    cargo fmt -- --color=always
+    cargo clippy --all-targets --color=always 2>&1
+  } | less -R -F
+fi
