@@ -35,8 +35,8 @@ pub trait Matcher: DynClone + Send {
 
     /// Determine the name and date-time to use
     ///
-    /// The whole &Replacement is passed so you can access the path() if needed,
-    /// or directly the file_stem
+    /// The whole &Replacement is passed so you can access the `path()` if needed,
+    /// or directly the `file_stem`
     fn determine(
         &self,
         replacement: &Replacement,

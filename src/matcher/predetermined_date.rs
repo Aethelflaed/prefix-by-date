@@ -11,9 +11,9 @@ enum When {
 }
 
 impl When {
-    fn name(&self) -> &'static str {
+    const fn name(self) -> &'static str {
         match self {
-            When::Today => TODAY,
+            Self::Today => TODAY,
         }
     }
 }
@@ -58,7 +58,7 @@ impl Matcher for PredeterminedDate {
         self.when.name()
     }
 
-    fn delimiter(&self) -> &str {
+    fn delimiter(&self) -> &'static str {
         " "
     }
 

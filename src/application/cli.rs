@@ -20,11 +20,11 @@ pub enum Metadata {
 }
 
 impl Metadata {
-    pub fn created(&self) -> bool {
+    pub const fn created(self) -> bool {
         matches!(self, Self::Created | Self::Both)
     }
 
-    pub fn modified(&self) -> bool {
+    pub const fn modified(self) -> bool {
         matches!(self, Self::Modified | Self::Both)
     }
 }
@@ -38,7 +38,7 @@ pub struct Cli {
 
     /// Sets a custom config directory
     ///
-    /// The default value is $PREFIX_BY_DATE_CONFIG if it is set, or
+    /// The default value is $`PREFIX_BY_DATE_CONFIG` if it is set, or
     /// $XDG_CONFIG_HOME/prefix-by-date otherwise
     #[arg(short = 'C', long, value_name = "DIR")]
     pub config: Option<PathBuf>,
@@ -73,15 +73,15 @@ impl Cli {
     /// A value of None indicates no preference.
     ///
     /// The boolean negation flag is inspired by
-    /// https://jwodder.github.io/kbits/posts/clap-bool-negate/
+    /// <https://jwodder.github.io/kbits/posts/clap-bool-negate>/
     ///
     /// The two field have different values if nothing has been specified,
     /// which we detect to return None
-    pub fn time(&self) -> Option<bool> {
-        if self.time != self.no_time {
-            None
-        } else {
+    pub const fn time(&self) -> Option<bool> {
+        if self.time == self.no_time {
             Some(self.time)
+        } else {
+            None
         }
     }
 }

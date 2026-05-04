@@ -21,8 +21,8 @@ impl Default for Pattern {
         Self {
             regex: Regex::new(".").expect("Default pattern to compile"),
             format: String::from(DEFAULT_DATE_FORMAT),
-            name: String::from(""),
-            delimiter: String::from(""),
+            name: String::new(),
+            delimiter: String::new(),
             time: false,
         }
     }
@@ -39,7 +39,7 @@ pub struct PatternBuilder {
 impl Default for PatternBuilder {
     fn default() -> Self {
         Self {
-            regex: String::from(""),
+            regex: String::new(),
             format: String::from(DEFAULT_DATE_FORMAT),
             name: None,
             delimiter: None,
@@ -69,24 +69,23 @@ impl MatchedDateTime {
         })
     }
 
-    /// Try to return the earliest matching local DateTime corresponding to the
+    /// Try to return the earliest matching local `DateTime` corresponding to the
     /// matched date. If it fails, try swapping month and day around to match
     /// imperial date format
     fn resolve(&self) -> Option<DateTime<Local>> {
-        match Local
+        Local
             .with_ymd_and_hms(
                 self.year, self.month, self.day, self.hour, self.min, self.sec,
             )
             .earliest()
-        {
-            Some(time) => Some(time),
-            None => Local
-                .with_ymd_and_hms(
-                    self.year, self.day, self.month, self.hour, self.min,
-                    self.sec,
-                )
-                .earliest(),
-        }
+            .or_else(|| {
+                Local
+                    .with_ymd_and_hms(
+                        self.year, self.day, self.month, self.hour, self.min,
+                        self.sec,
+                    )
+                    .earliest()
+            })
     }
 }
 
@@ -113,7 +112,7 @@ impl Pattern {
         Self::builder().deserialize(name, table, default_format)
     }
 
-    pub fn time(&self) -> bool {
+    pub const fn time(&self) -> bool {
         self.time
     }
 }
@@ -180,7 +179,7 @@ impl PatternBuilder {
         self
     }
 
-    pub fn time(&mut self, time: bool) -> &mut Self {
+    pub const fn time(&mut self, time: bool) -> &mut Self {
         self.time = Some(time);
         self
     }
@@ -229,7 +228,7 @@ impl PatternBuilder {
                     .name
                     .take()
                     .expect("Name is mandatory to build pattern"),
-                delimiter: self.delimiter.take().unwrap_or(" ".into()),
+                delimiter: self.delimiter.take().unwrap_or_else(|| " ".into()),
                 format: std::mem::take(&mut self.format),
                 time: self.time.unwrap_or(false),
             })

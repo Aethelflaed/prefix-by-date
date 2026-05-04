@@ -38,7 +38,7 @@ pub trait Reporter {
 pub trait Communication: Reporter {
     /// Whenever a matcher finds a replacement, confirm it
     fn confirm(&self, replacement: &Replacement) -> Confirmation;
-    /// If no match is found, attempt to rescue the Error::NoMatch
+    /// If no match is found, attempt to rescue the `Error::NoMatch`
     fn rescue(&self, error: Error) -> Result<Replacement>;
 }
 
@@ -55,7 +55,7 @@ pub enum Confirmation {
 }
 
 impl PartialEq for Confirmation {
-    fn eq(&self, other: &Confirmation) -> bool {
+    fn eq(&self, other: &Self) -> bool {
         std::mem::discriminant(self) == std::mem::discriminant(other)
     }
 }
@@ -92,7 +92,7 @@ where
             self.report_processing(path);
 
             match self.prefix_if_possible(path).and_then(|replacement| {
-                replacement.execute().map(|_| replacement)
+                replacement.execute().map(|()| replacement)
             }) {
                 Ok(replacement) => {
                     self.report_processing_ok(&replacement);
@@ -100,7 +100,7 @@ where
                 Err(error) => {
                     self.report_processing_err(path, &error);
 
-                    if let Error::Abort = error {
+                    if matches!(error, Error::Abort) {
                         return Err(error);
                     }
                 }
@@ -149,7 +149,7 @@ where
                     Confirmation::Replace(replacement) => {
                         return Ok(replacement)
                     }
-                };
+                }
             }
         }
 
@@ -248,7 +248,7 @@ mod tests {
                 .returning(|_| {});
             interface
                 .expect_processing()
-                .with(predicate::eq(path.clone()))
+                .with(predicate::eq(path))
                 .times(1)
                 .in_sequence(&mut seq)
                 .returning(|_| {});
@@ -283,7 +283,7 @@ mod tests {
                 .returning(|_| {});
             interface
                 .expect_processing()
-                .with(predicate::eq(path.clone()))
+                .with(predicate::eq(path))
                 .times(1)
                 .in_sequence(&mut seq)
                 .returning(|_| {});
@@ -327,7 +327,7 @@ mod tests {
                 .returning(|_| {});
             interface
                 .expect_processing()
-                .with(predicate::eq(path.clone()))
+                .with(predicate::eq(path))
                 .times(1)
                 .in_sequence(&mut seq)
                 .returning(|_| {});
@@ -375,7 +375,7 @@ mod tests {
                 .returning(|_| {});
             interface
                 .expect_processing()
-                .with(predicate::eq(path.clone()))
+                .with(predicate::eq(path))
                 .times(1)
                 .in_sequence(&mut seq)
                 .returning(|_| {});
@@ -562,7 +562,7 @@ mod tests {
                 .returning(|_| {});
             interface
                 .expect_processing()
-                .with(predicate::eq(path.clone()))
+                .with(predicate::eq(path))
                 .times(1)
                 .in_sequence(&mut seq)
                 .returning(|_| {});
@@ -606,7 +606,7 @@ mod tests {
                 .returning(|_| {});
             interface
                 .expect_processing()
-                .with(predicate::eq(path.clone()))
+                .with(predicate::eq(path))
                 .times(1)
                 .in_sequence(&mut seq)
                 .returning(|_| {});
@@ -664,7 +664,7 @@ mod tests {
                 .returning(|_, _| {});
             interface
                 .expect_processing()
-                .with(predicate::eq(path.clone()))
+                .with(predicate::eq(path))
                 .times(1)
                 .in_sequence(&mut seq)
                 .returning(|_| {});
@@ -704,7 +704,7 @@ mod tests {
                 .returning(|_| {});
             interface
                 .expect_processing()
-                .with(predicate::eq(path.clone()))
+                .with(predicate::eq(path))
                 .times(1)
                 .in_sequence(&mut seq)
                 .returning(|_| {});
@@ -749,7 +749,7 @@ mod tests {
                 .returning(|_| {});
             interface
                 .expect_processing()
-                .with(predicate::eq(path.clone()))
+                .with(predicate::eq(path))
                 .times(1)
                 .in_sequence(&mut seq)
                 .returning(|_| {});

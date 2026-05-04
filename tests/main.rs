@@ -8,6 +8,8 @@ pub struct Env {
 }
 
 impl Env {
+    /// # Errors
+    /// - temp dir creation failure
     pub fn new() -> Result<Self> {
         Ok(Self {
             conf_dir: TempDir::new()?.into_persistent_if(
@@ -16,6 +18,8 @@ impl Env {
         })
     }
 
+    /// # Errors
+    /// - unable to determine the binary name
     pub fn command(&self) -> Result<Command> {
         let mut cmd = Command::cargo_bin("prefix-by-date")?;
         cmd.arg("-C").arg(self.conf_dir.path());

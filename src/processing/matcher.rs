@@ -28,22 +28,22 @@ impl ProcessingMatcher<'_> {
     ///
     /// Can we directly used the Replacement given by check or should we ask
     /// for confirmation?
-    pub fn confirmed(&self) -> bool {
+    pub const fn confirmed(&self) -> bool {
         self.confirmed
     }
 
     /// Mark a matcher as confirmed
-    pub fn confirm(&mut self) {
+    pub const fn confirm(&mut self) {
         self.confirmed = true;
     }
 
     /// Check if the matcher should be ignored
-    pub fn ignored(&self) -> bool {
+    pub const fn ignored(&self) -> bool {
         self.ignored
     }
 
     /// Mark the matcher as ignored
-    pub fn ignore(&mut self) {
+    pub const fn ignore(&mut self) {
         self.ignored = true;
     }
 }

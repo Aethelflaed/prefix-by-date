@@ -59,7 +59,7 @@ impl Application {
         log::set_max_level(self.arguments.log_level_filter());
 
         while let Some(error) = self.arguments.init_errors.pop_front() {
-            log::info!("Init error: {}", error);
+            log::info!("Init error: {error}");
         }
 
         log::debug!("Arguments: {:?}", self.arguments);
@@ -133,8 +133,8 @@ impl Application {
                 .replace('-', "_")
                 .to_uppercase();
             let env = Env::new()
-                .filter(format!("{}_LOG", name))
-                .write_style(format!("{}_LOG_STYLE", name));
+                .filter(format!("{name}_LOG"))
+                .write_style(format!("{name}_LOG_STYLE"));
 
             self.ui.setup_logger(
                 Builder::new()
@@ -262,13 +262,13 @@ mod tests {
             impl ui::Interface for Interface {
                 fn setup_logger(
                     &mut self,
-                    _logger_builder: &mut env_logger::Builder,
+                    logger_builder: &mut env_logger::Builder,
                 ) -> LogResult;
 
                 fn process(
                     &mut self,
-                    _matchers: &[Box<dyn crate::matcher::Matcher>],
-                    _paths: &[PathBuf],
+                    matchers: &[Box<dyn crate::matcher::Matcher>],
+                    paths: &[PathBuf],
                 ) -> Result<()>;
             }
         }
@@ -291,12 +291,13 @@ mod tests {
 
         #[test]
         fn setup_today_matcher() {
+            use crate::matcher::predetermined_date::TODAY;
+
             let mut app = Application::default();
             let mut ui = MockInterface::new();
 
             ui.expect_setup_logger().times(1).returning(|_| Ok(()));
 
-            use crate::matcher::predetermined_date::TODAY;
             app.arguments.today = true;
 
             app.setup_with_ui(Box::new(ui)).unwrap();
@@ -306,13 +307,14 @@ mod tests {
 
         #[test]
         fn setup_created_matcher() {
+            use crate::matcher::metadata::CREATED;
+            use cli::Metadata;
+
             let mut app = Application::default();
             let mut ui = MockInterface::new();
 
             ui.expect_setup_logger().times(1).returning(|_| Ok(()));
 
-            use crate::matcher::metadata::CREATED;
-            use cli::Metadata;
             app.arguments.metadata = Metadata::Created;
 
             app.setup_with_ui(Box::new(ui)).unwrap();
@@ -322,13 +324,14 @@ mod tests {
 
         #[test]
         fn setup_modified_matcher() {
+            use crate::matcher::metadata::MODIFIED;
+            use cli::Metadata;
+
             let mut app = Application::default();
             let mut ui = MockInterface::new();
 
             ui.expect_setup_logger().times(1).returning(|_| Ok(()));
 
-            use crate::matcher::metadata::MODIFIED;
-            use cli::Metadata;
             app.arguments.metadata = Metadata::Modified;
 
             app.setup_with_ui(Box::new(ui)).unwrap();
@@ -338,13 +341,14 @@ mod tests {
 
         #[test]
         fn setup_metadata_both_matcher() {
+            use crate::matcher::metadata::{CREATED, MODIFIED};
+            use cli::Metadata;
+
             let mut app = Application::default();
             let mut ui = MockInterface::new();
 
             ui.expect_setup_logger().times(1).returning(|_| Ok(()));
 
-            use crate::matcher::metadata::{CREATED, MODIFIED};
-            use cli::Metadata;
             app.arguments.metadata = Metadata::Both;
 
             app.setup_with_ui(Box::new(ui)).unwrap();

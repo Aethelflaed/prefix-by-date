@@ -54,12 +54,12 @@ pub struct NonInteractive {}
 impl NonInteractive {
     #[allow(dead_code)]
     /// Inidcate whether or not this interface is available
-    pub fn available() -> bool {
+    pub const fn available() -> bool {
         true
     }
 
-    pub fn new() -> Self {
-        NonInteractive {}
+    pub const fn new() -> Self {
+        Self {}
     }
 }
 

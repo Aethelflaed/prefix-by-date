@@ -3,7 +3,7 @@ use crate::processing::{Error, Result};
 use std::fmt;
 use std::path::{Path, PathBuf};
 
-#[derive(Debug, Clone, Default, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Replacement {
     pub parent: PathBuf,
     pub file_stem: String,
@@ -17,25 +17,29 @@ impl TryFrom<&Path> for Replacement {
     fn try_from(path: &Path) -> Result<Self> {
         let parent = path
             .parent()
-            .ok_or(Error::PathUnwrap(path.into(), "parent"))?;
+            .ok_or_else(|| Error::PathUnwrap(path.into(), "parent"))?;
         let file_stem: String = path
             .file_stem()
-            .ok_or(Error::PathUnwrap(path.into(), "file_stem"))?
+            .ok_or_else(|| Error::PathUnwrap(path.into(), "file_stem"))?
             .to_str()
-            .ok_or(Error::PathUnwrap(path.into(), "file_stem/to_str"))?
+            .ok_or_else(|| Error::PathUnwrap(path.into(), "file_stem/to_str"))?
             .to_string();
         let ext: String = match path.extension() {
             Some(os_str) => os_str
                 .to_str()
-                .ok_or(Error::PathUnwrap(path.into(), "extension/to_str"))?
+                .ok_or_else(|| {
+                    Error::PathUnwrap(path.into(), "extension/to_str")
+                })?
                 .to_string(),
-            None => "".to_string(),
+            None => String::new(),
         };
 
         // Try to resolve the path, but rescue silently if it doesn't work
-        let parent = parent.canonicalize().unwrap_or(parent.to_path_buf());
+        let parent = parent
+            .canonicalize()
+            .unwrap_or_else(|_| parent.to_path_buf());
 
-        Ok(Replacement {
+        Ok(Self {
             parent,
             file_stem: file_stem.clone(),
             new_file_stem: file_stem,

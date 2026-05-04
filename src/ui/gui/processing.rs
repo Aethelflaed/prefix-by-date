@@ -75,7 +75,7 @@ pub fn connect() -> impl Stream<Item = Event> {
             let front = ProcessingFront::new(&mut gui_rx, worker_tx.clone());
             let result = match Processing::new(&front, &matchers, &paths).run()
             {
-                Ok(_) => Event::Finished,
+                Ok(()) => Event::Finished,
                 Err(_) => Event::Aborted,
             };
 
@@ -128,7 +128,7 @@ impl<'a> ProcessingFront<'a> {
     pub fn new(
         gui_rx: &'a mut mpsc::Receiver<Confirmation>,
         worker_tx: mpsc::Sender<Event>,
-    ) -> ProcessingFront<'a> {
+    ) -> Self {
         Self {
             gui_rx: Mutex::new(gui_rx),
             worker_tx: RefCell::new(worker_tx),
@@ -138,13 +138,13 @@ impl<'a> ProcessingFront<'a> {
     // Only return false if the channel is closed
     fn send(&self, event: Event) -> bool {
         let mut worker_tx = self.worker_tx.borrow_mut();
-        if !worker_tx.is_closed() {
+        if worker_tx.is_closed() {
+            false
+        } else {
             block_on(worker_tx.send(event))
                 .expect("Send event from processing thread");
 
             true
-        } else {
-            false
         }
     }
 }
@@ -158,10 +158,7 @@ impl Reporter for ProcessingFront<'_> {
         self.send(Event::ProcessingOk(replacement.clone()));
     }
     fn processing_err(&self, path: &Path, error: &Error) {
-        self.send(Event::ProcessingErr(
-            path.to_path_buf(),
-            format!("{}", error),
-        ));
+        self.send(Event::ProcessingErr(path.to_path_buf(), format!("{error}")));
     }
 }
 
@@ -178,43 +175,36 @@ impl Communication for ProcessingFront<'_> {
     }
 
     fn rescue(&self, error: Error) -> processing::Result<Replacement> {
-        match &error {
-            Error::NoMatch(path) => {
-                let replacement = match Replacement::try_from(path.as_path()) {
-                    Ok(rep) => rep,
-                    Err(_) => return Err(error),
-                };
+        if let Error::NoMatch(path) = &error {
+            let Ok(replacement) = Replacement::try_from(path.as_path()) else {
+                return Err(error);
+            };
 
-                if !self.send(Event::Rescue(replacement.clone())) {
-                    return Err(Error::Abort);
-                }
+            if !self.send(Event::Rescue(replacement)) {
+                return Err(Error::Abort);
+            }
 
-                let receiving = async { self.gui_rx.lock().await.next().await };
-                // If we don't get a confirmation, it means the UI is
-                // quitting, so we abort
-                let conf = match block_on(receiving) {
-                    None => return Err(Error::Abort),
-                    Some(conf) => conf,
-                };
-                match conf {
-                    // If we receive Confirmation::Abort, this means the rescue
-                    // is aborted, so we return the original error
-                    Confirmation::Abort => Err(Error::Abort),
-                    Confirmation::Replace(replacement) => Ok(replacement),
-                    Confirmation::Skip | Confirmation::Refuse => Err(error),
-                    other => {
-                        log::warn!(
-                            "Unexpected rescue confirmation: {:?}",
-                            other
-                        );
-                        Err(error)
-                    }
+            let receiving = async { self.gui_rx.lock().await.next().await };
+            // If we don't get a confirmation, it means the UI is
+            // quitting, so we abort
+            let Some(conf) = block_on(receiving) else {
+                return Err(Error::Abort);
+            };
+
+            match conf {
+                // If we receive Confirmation::Abort, this means the rescue
+                // is aborted, so we return the original error
+                Confirmation::Abort => Err(Error::Abort),
+                Confirmation::Replace(replacement) => Ok(replacement),
+                Confirmation::Skip | Confirmation::Refuse => Err(error),
+                other => {
+                    log::warn!("Unexpected rescue confirmation: {other:?}");
+                    Err(error)
                 }
             }
-            _ => {
-                log::warn!("Unexpected rescue: {:?}", error);
-                Err(error)
-            }
+        } else {
+            log::warn!("Unexpected rescue: {error:?}");
+            Err(error)
         }
     }
 }

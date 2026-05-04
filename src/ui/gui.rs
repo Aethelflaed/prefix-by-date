@@ -14,8 +14,8 @@ use window::Window;
 pub struct Gui {}
 
 impl Gui {
-    pub fn new() -> Self {
-        Gui {}
+    pub const fn new() -> Self {
+        Self {}
     }
 }
 

@@ -14,7 +14,7 @@ impl Reporter for LogReporter {
     /// Report the total count of elements to be processed
     fn setup(&self, number: usize) {
         self.count.set(number);
-        log::info!("Processing {} paths...", number);
+        log::info!("Processing {number} paths...");
     }
 
     /// Report that we start processing a new path
@@ -26,24 +26,24 @@ impl Reporter for LogReporter {
     /// Report that processing the path yielded an error
     fn processing_err(&self, path: &Path, error: &Error) {
         self.report_path("Error processing path", path);
-        log::warn!("{}", error);
+        log::warn!("{error}");
     }
 
     /// Report that processing  the path finished successfully
     fn processing_ok(&self, replacement: &Replacement) {
         self.report_path("Success processing path", &replacement.path());
-        log::info!("Into: {}", replacement);
+        log::info!("Into: {replacement}");
     }
 }
 
 impl LogReporter {
     fn report_path(&self, message: &str, path: &Path) {
         log::info!(
-            "{} {}/{}: {:?}",
+            "{} {}/{}: {}",
             message,
             self.current.get(),
             self.count.get(),
-            path
+            path.display()
         );
     }
 }

@@ -35,7 +35,7 @@ pub enum Action {
 }
 
 impl PartialEq for Action {
-    fn eq(&self, other: &Action) -> bool {
+    fn eq(&self, other: &Self) -> bool {
         std::mem::discriminant(self) == std::mem::discriminant(other)
     }
 }
@@ -43,13 +43,13 @@ impl PartialEq for Action {
 impl From<&Confirmation> for Action {
     fn from(conf: &Confirmation) -> Self {
         match conf {
-            Confirmation::Accept => Action::Accept,
-            Confirmation::Always => Action::Always,
-            Confirmation::Replace(rep) => Action::Replace(rep.clone()),
-            Confirmation::Skip => Action::Skip,
-            Confirmation::Refuse => Action::Refuse,
-            Confirmation::Ignore => Action::Ignore,
-            Confirmation::Abort => Action::Abort,
+            Confirmation::Accept => Self::Accept,
+            Confirmation::Always => Self::Always,
+            Confirmation::Replace(rep) => Self::Replace(rep.clone()),
+            Confirmation::Skip => Self::Skip,
+            Confirmation::Refuse => Self::Refuse,
+            Confirmation::Ignore => Self::Ignore,
+            Confirmation::Abort => Self::Abort,
         }
     }
 }
@@ -59,17 +59,17 @@ impl TryInto<Confirmation> for Action {
 
     fn try_into(self) -> std::result::Result<Confirmation, Self::Error> {
         match self {
-            Action::Accept => Ok(Confirmation::Accept),
-            Action::Always => Ok(Confirmation::Always),
-            Action::Replace(rep) => Ok(Confirmation::Replace(rep)),
-            Action::Skip => Ok(Confirmation::Skip),
-            Action::Refuse => Ok(Confirmation::Refuse),
-            Action::Ignore => Ok(Confirmation::Ignore),
-            Action::Abort => Ok(Confirmation::Abort),
-            Action::Customize(_) => Err(()),
-            Action::ConfirmCustomization => Err(()),
-            Action::ViewAlternatives => Err(()),
-            Action::Cancel => Err(()),
+            Self::Accept => Ok(Confirmation::Accept),
+            Self::Always => Ok(Confirmation::Always),
+            Self::Replace(rep) => Ok(Confirmation::Replace(rep)),
+            Self::Skip => Ok(Confirmation::Skip),
+            Self::Refuse => Ok(Confirmation::Refuse),
+            Self::Ignore => Ok(Confirmation::Ignore),
+            Self::Abort => Ok(Confirmation::Abort),
+            Self::Customize(_)
+            | Self::ConfirmCustomization
+            | Self::ViewAlternatives
+            | Self::Cancel => Err(()),
         }
     }
 }
@@ -78,21 +78,21 @@ impl Action {
     pub fn determine_for(current: &Current) -> Vec<Self> {
         match current {
             Current::Confirm(change) => {
-                let mut actions = vec![Action::Accept, Action::Always];
+                let mut actions = vec![Self::Accept, Self::Always];
                 if !change.alternatives.is_empty() {
-                    actions.push(Action::ViewAlternatives);
+                    actions.push(Self::ViewAlternatives);
                 }
                 if change.is_further_customizable() {
-                    actions.push(Action::Customize(
+                    actions.push(Self::Customize(
                         change.replacement.new_file_stem.clone(),
                     ));
                 }
-                actions.extend_from_slice(&vec![
-                    Action::Replace(change.replacement.clone()),
-                    Action::Skip,
-                    Action::Refuse,
-                    Action::Ignore,
-                    Action::Abort,
+                actions.extend_from_slice(&[
+                    Self::Replace(change.replacement.clone()),
+                    Self::Skip,
+                    Self::Refuse,
+                    Self::Ignore,
+                    Self::Abort,
                 ]);
 
                 actions
@@ -100,15 +100,15 @@ impl Action {
             Current::Rescue(change) => {
                 let mut actions = vec![];
                 if change.is_further_customizable() {
-                    actions.push(Action::Customize(
+                    actions.push(Self::Customize(
                         change.replacement.new_file_stem.clone(),
                     ));
                 }
-                actions.extend_from_slice(&vec![
-                    Action::Replace(change.replacement.clone()),
-                    Action::Skip,
-                    Action::Refuse,
-                    Action::Abort,
+                actions.extend_from_slice(&[
+                    Self::Replace(change.replacement.clone()),
+                    Self::Skip,
+                    Self::Refuse,
+                    Self::Abort,
                 ]);
 
                 actions
@@ -119,23 +119,23 @@ impl Action {
 
     pub fn all() -> Vec<Self> {
         vec![
-            Action::Accept,
-            Action::Always,
-            Action::Customize(String::default()),
-            Action::Replace(Replacement::default()),
-            Action::Skip,
-            Action::Refuse,
-            Action::Ignore,
-            Action::Abort,
-            Action::ConfirmCustomization,
-            Action::ViewAlternatives,
-            Action::Cancel,
+            Self::Accept,
+            Self::Always,
+            Self::Customize(String::default()),
+            Self::Replace(Replacement::default()),
+            Self::Skip,
+            Self::Refuse,
+            Self::Ignore,
+            Self::Abort,
+            Self::ConfirmCustomization,
+            Self::ViewAlternatives,
+            Self::Cancel,
         ]
     }
 }
 
 #[allow(dead_code)]
-pub fn shortcut_for(action: &Action) -> Option<char> {
+pub const fn shortcut_for(action: &Action) -> Option<char> {
     match action {
         Action::Accept => Some('Y'),
         Action::Always => Some('A'),
@@ -144,10 +144,10 @@ pub fn shortcut_for(action: &Action) -> Option<char> {
         Action::Refuse => Some('R'),
         Action::Ignore => Some('I'),
         Action::Abort => Some('Q'),
-        Action::Replace(_) => None,
-        Action::ConfirmCustomization => None,
+        Action::Replace(_) | Action::ConfirmCustomization | Action::Cancel => {
+            None
+        }
         Action::ViewAlternatives => Some('V'),
-        Action::Cancel => None,
     }
 }
 
@@ -322,10 +322,7 @@ mod tests {
             vec!['Y', 'A', 'C', 'S', 'R', 'I', 'Q', 'V']
         );
 
-        let func = |action: &Action| match shortcut_for(action) {
-            Some(c) => Some(c),
-            None => Some('?'),
-        };
+        let func = |action: &Action| shortcut_for(action).or(Some('?'));
 
         assert_eq!(
             actions.iter().filter_map(func).collect::<Vec<_>>(),

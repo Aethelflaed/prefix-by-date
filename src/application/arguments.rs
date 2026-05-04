@@ -58,7 +58,7 @@ impl Arguments {
     {
         use clap::Parser;
 
-        let mut instance = Arguments::default();
+        let mut instance = Self::default();
         instance.cli.try_update_from(iter)?;
         instance.apply_config("config.toml");
         instance.apply_cli();
@@ -70,38 +70,39 @@ impl Arguments {
         self.cli.verbose.log_level_filter()
     }
 
-    pub fn interactive(&self) -> Interactive {
+    pub const fn interactive(&self) -> Interactive {
         self.cli.interactive
     }
 
     /// Prefix by date and time if true, date only otherwise
-    pub fn time(&self) -> bool {
+    pub const fn time(&self) -> bool {
         self.time
     }
 
     /// Default format string to format date
-    pub fn default_format(&self) -> &str {
-        match self.time() {
-            true => &self.default_date_time_format,
-            false => &self.default_date_format,
+    pub const fn default_format(&self) -> &str {
+        if self.time() {
+            self.default_date_time_format.as_str()
+        } else {
+            self.default_date_format.as_str()
         }
     }
 
     /// Use pre-determined date matcher with today's date
-    pub fn today(&self) -> bool {
+    pub const fn today(&self) -> bool {
         self.today
     }
 
     /// Use metadata matchers (creation and modification time)
-    pub fn metadata(&self) -> Metadata {
+    pub const fn metadata(&self) -> Metadata {
         self.metadata
     }
 
-    pub fn paths(&self) -> &[PathBuf] {
-        &self.cli.paths
+    pub const fn paths(&self) -> &[PathBuf] {
+        self.cli.paths.as_slice()
     }
 
-    fn apply_cli(&mut self) {
+    const fn apply_cli(&mut self) {
         if let Some(time) = self.cli.time() {
             self.time = time;
         }
@@ -121,12 +122,12 @@ impl Arguments {
             Ok(content) => match content.parse::<Table>() {
                 Ok(config_table) => self.apply_config_table(config_table),
                 Err(e) => self.init_errors.push_back(
-                    format!("Unable to parse config file: {:?}", e).into(),
+                    format!("Unable to parse config file: {e:?}").into(),
                 ),
             },
-            Err(e) => self.init_errors.push_back(
-                format!("Unable to read config file: {:?}", e).into(),
-            ),
+            Err(e) => self
+                .init_errors
+                .push_back(format!("Unable to read config file: {e:?}").into()),
         }
     }
 
@@ -167,12 +168,12 @@ impl Arguments {
                 if matches!(self.metadata, Metadata::None) {
                     match (created, modified) {
                         (Some(true), Some(true)) => {
-                            self.metadata = Metadata::Both
+                            self.metadata = Metadata::Both;
                         }
                         (Some(true), _) => self.metadata = Metadata::Created,
                         (_, Some(true)) => self.metadata = Metadata::Modified,
                         (_, _) => {}
-                    };
+                    }
                 } else {
                     self.init_errors.push_back(
                         format!(
@@ -297,7 +298,7 @@ mod tests {
             None => {
                 panic!("An error was expected but none was received")
             }
-        };
+        }
     }
 
     #[test]
@@ -333,7 +334,7 @@ mod tests {
                 }
                 Some(error) => panic!("Unknown error: {error:?}"),
                 None => panic!("An error was expected but none was received"),
-            };
+            }
         }
 
         #[test]
@@ -349,7 +350,7 @@ mod tests {
                 }
                 Some(error) => panic!("Unknown error: {error:?}"),
                 None => panic!("An error was expected but none was received"),
-            };
+            }
         }
 
         #[test]

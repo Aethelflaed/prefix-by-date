@@ -11,10 +11,10 @@ enum Kind {
 }
 
 impl Kind {
-    fn name(&self) -> &'static str {
+    const fn name(self) -> &'static str {
         match self {
-            Kind::Created => CREATED,
-            Kind::Modified => MODIFIED,
+            Self::Created => CREATED,
+            Self::Modified => MODIFIED,
         }
     }
 }
@@ -64,7 +64,7 @@ impl Matcher for Metadata {
         self.kind.name()
     }
     /// Delimiter to place between the matched elements
-    fn delimiter(&self) -> &str {
+    fn delimiter(&self) -> &'static str {
         " "
     }
     /// Format to use for the date

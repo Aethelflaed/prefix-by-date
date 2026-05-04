@@ -40,7 +40,7 @@ impl State {
     /// Transition current from Path or Resolving to Confirm
     ///
     /// The confirmation that transition to Resolving might not necessarily
-    /// resolve the issue (e.g. Confirmation::Refuse)
+    /// resolve the issue (e.g. `Confirmation::Refuse`)
     pub fn set_current_confirm(
         &mut self,
         replacement: Replacement,
@@ -128,7 +128,7 @@ impl State {
     }
 
     /// Update the customize field of the current change, as returned by
-    /// change()
+    /// `change()`
     ///
     /// This also refresh the actions
     pub fn customize(&mut self, string: String) {
@@ -153,7 +153,7 @@ impl State {
 
     /// Get a Replacement from the customize field of the current change
     ///
-    /// Returns None if there is no customization or if change() returns None
+    /// Returns None if there is no customization or if `change()` returns None
     pub fn customized_replacement(&self) -> Option<Replacement> {
         self.change().and_then(|change| {
             change.customize.clone().map(|value| {
@@ -165,13 +165,13 @@ impl State {
     }
 
     /// Access the current change being considered for a Confirm or a Rescue
-    pub fn change(&self) -> Option<&Change> {
+    pub const fn change(&self) -> Option<&Change> {
         match &self.current {
             Current::Confirm(change) | Current::Rescue(change) => Some(change),
             _ => None,
         }
     }
-    fn change_mut(&mut self) -> Option<&mut Change> {
+    const fn change_mut(&mut self) -> Option<&mut Change> {
         match &mut self.current {
             Current::Confirm(change) | Current::Rescue(change) => Some(change),
             _ => None,
@@ -179,17 +179,17 @@ impl State {
     }
 
     /// Index of the current path being processed
-    pub fn index(&self) -> usize {
+    pub const fn index(&self) -> usize {
         self.index
     }
 
     /// Number of paths to process
-    pub fn len(&self) -> usize {
+    pub const fn len(&self) -> usize {
         self.len
     }
 
     /// State of the currently being processed path
-    pub fn current(&self) -> &Current {
+    pub const fn current(&self) -> &Current {
         &self.current
     }
 
@@ -233,7 +233,7 @@ pub enum Current {
 }
 
 impl PartialEq for Current {
-    fn eq(&self, other: &Current) -> bool {
+    fn eq(&self, other: &Self) -> bool {
         std::mem::discriminant(self) == std::mem::discriminant(other)
     }
 }
@@ -262,7 +262,7 @@ impl Change {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ProcessingResult {
     Success(Replacement),
     Failure(PathBuf, String),
@@ -271,8 +271,8 @@ pub enum ProcessingResult {
 impl std::fmt::Display for ProcessingResult {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            Self::Success(rep) => write!(f, "{}", rep),
-            Self::Failure(_path, error) => write!(f, "{}", error),
+            Self::Success(rep) => write!(f, "{rep}"),
+            Self::Failure(_path, error) => write!(f, "{error}"),
         }
     }
 }
@@ -491,20 +491,17 @@ mod tests {
             };
             state.set_current_success(replacement.clone());
 
-            match current {
-                Current::Resolving(_) => {
-                    assert_eq!(state.current, Current::Resolved);
-                    assert!(state.actions.is_empty());
-                    assert_eq!(state.index(), 1);
-                    assert_eq!(
-                        state.logs,
-                        [ProcessingResult::Success(replacement.clone())]
-                    );
-                }
-                _ => {
-                    assert_eq!(state.current, current);
-                    assert_eq!(state.index(), 0);
-                }
+            if let Current::Resolving(_) = current {
+                assert_eq!(state.current, Current::Resolved);
+                assert!(state.actions.is_empty());
+                assert_eq!(state.index(), 1);
+                assert_eq!(
+                    state.logs,
+                    [ProcessingResult::Success(replacement.clone())]
+                );
+            } else {
+                assert_eq!(state.current, current);
+                assert_eq!(state.index(), 0);
             }
         }
     }
@@ -522,23 +519,17 @@ mod tests {
             };
             state.set_current_failure(path.clone(), error.clone());
 
-            match current {
-                Current::Resolving(_) => {
-                    assert_eq!(state.current, Current::Resolved);
-                    assert!(state.actions.is_empty());
-                    assert_eq!(state.index(), 1);
-                    assert_eq!(
-                        state.logs,
-                        [ProcessingResult::Failure(
-                            path.clone(),
-                            error.clone()
-                        )]
-                    );
-                }
-                _ => {
-                    assert_eq!(state.current, current);
-                    assert_eq!(state.index(), 0);
-                }
+            if let Current::Resolving(_) = current {
+                assert_eq!(state.current, Current::Resolved);
+                assert!(state.actions.is_empty());
+                assert_eq!(state.index(), 1);
+                assert_eq!(
+                    state.logs,
+                    [ProcessingResult::Failure(path.clone(), error.clone())]
+                );
+            } else {
+                assert_eq!(state.current, current);
+                assert_eq!(state.index(), 0);
             }
         }
     }

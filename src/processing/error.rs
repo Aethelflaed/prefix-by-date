@@ -24,20 +24,20 @@ impl fmt::Display for Error {
         match &self {
             Self::Io(error) => fmt::Display::fmt(&error, f),
             Self::NotFound(path) => {
-                write!(f, "Path not found: {:?}", path)
+                write!(f, "Path not found: {}", path.display())
             }
             Self::NoMatch(path) => {
-                write!(f, "No match for path: {:?}", path)
+                write!(f, "No match for path: {}", path.display())
             }
             Self::PathUnwrap(path, op) => {
                 write!(
                     f,
-                    "Error unwrapping operationg {:?} for path: {:?}",
-                    op, path
+                    "Error unwrapping operationg {op:?} for path: {}",
+                    path.display()
                 )
             }
             Self::Skip(path) => {
-                write!(f, "Skipping {:?}", path)
+                write!(f, "Skipping {}", path.display())
             }
             Self::Abort => {
                 write!(f, "Abort received, quitting...")
@@ -47,11 +47,11 @@ impl fmt::Display for Error {
 }
 
 impl Error {
-    pub fn not_found(path: &Path) -> Error {
+    pub fn not_found(path: &Path) -> Self {
         Self::NotFound(path.to_path_buf())
     }
 
-    pub fn no_match(path: &Path) -> Error {
+    pub fn no_match(path: &Path) -> Self {
         Self::NoMatch(path.to_path_buf())
     }
 }

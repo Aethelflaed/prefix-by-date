@@ -40,7 +40,7 @@ struct ReplacementDisplay<'a> {
 impl fmt::Display for ReplacementDisplay<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use dialoguer::console::style;
-        use diff::Result::*;
+        use diff::Result::{Both, Left, Right};
 
         for diff in diff::chars(
             self.replacement.file_stem.as_str(),
@@ -58,7 +58,7 @@ impl fmt::Display for ReplacementDisplay<'_> {
 }
 
 impl<'a> From<&'a Replacement> for ReplacementDisplay<'a> {
-    fn from(replacement: &'a Replacement) -> ReplacementDisplay<'a> {
+    fn from(replacement: &'a Replacement) -> Self {
         Self { replacement }
     }
 }
@@ -106,7 +106,7 @@ impl Text {
             multi_progress,
             bar: None,
             matcher_name_length: 0,
-            matchers: Default::default(),
+            matchers: Vec::default(),
         }
     }
 
@@ -140,7 +140,7 @@ impl ui::Interface for Text {
         matchers: &[Box<dyn Matcher>],
         paths: &[PathBuf],
     ) -> Result<()> {
-        self.matchers = matchers.to_owned();
+        matchers.clone_into(&mut self.matchers);
 
         self.state = RefCell::new(State::new(paths.len()));
         self.bar = Some(
@@ -175,7 +175,7 @@ impl Reporter for Text {
     fn processing_err(&self, path: &Path, error: &Error) {
         self.state
             .borrow_mut()
-            .set_current_failure(path.to_path_buf(), format!("{}", error));
+            .set_current_failure(path.to_path_buf(), format!("{error}"));
         self.inc_progress();
     }
 }
@@ -192,38 +192,31 @@ impl Communication for Text {
         .resolve()
     }
     fn rescue(&self, error: Error) -> processing::Result<Replacement> {
-        match &error {
-            Error::NoMatch(path) => {
-                let replacement = match Replacement::try_from(path.as_path()) {
-                    Ok(rep) => rep,
-                    Err(_) => return Err(error),
-                };
+        if let Error::NoMatch(path) = &error {
+            let Ok(replacement) = Replacement::try_from(path.as_path()) else {
+                return Err(error);
+            };
 
-                let mut state = self.state.borrow_mut();
-                state.set_current_rescue(replacement.clone());
-                let resolution = Resolver {
-                    ui: self,
-                    state: &mut state,
-                    action: None,
-                }
-                .resolve();
-                match resolution {
-                    Confirmation::Abort => Err(Error::Abort),
-                    Confirmation::Replace(replacement) => Ok(replacement),
-                    Confirmation::Skip | Confirmation::Refuse => Err(error),
-                    other => {
-                        log::warn!(
-                            "Unexpected rescue confirmation: {:?}",
-                            other
-                        );
-                        Err(error)
-                    }
+            let mut state = self.state.borrow_mut();
+            state.set_current_rescue(replacement);
+            let resolution = Resolver {
+                ui: self,
+                state: &mut state,
+                action: None,
+            }
+            .resolve();
+            match resolution {
+                Confirmation::Abort => Err(Error::Abort),
+                Confirmation::Replace(replacement) => Ok(replacement),
+                Confirmation::Skip | Confirmation::Refuse => Err(error),
+                other => {
+                    log::warn!("Unexpected rescue confirmation: {other:?}");
+                    Err(error)
                 }
             }
-            _ => {
-                log::warn!("Unexpected rescue: {:?}", error);
-                Err(error)
-            }
+        } else {
+            log::warn!("Unexpected rescue: {error:?}");
+            Err(error)
         }
     }
 }
@@ -264,7 +257,7 @@ impl Resolver<'_> {
                     Current::Path(_) | Current::None | Current::Resolved => {
                         unreachable!()
                     }
-                };
+                }
             }
         }
     }
@@ -275,7 +268,7 @@ impl Resolver<'_> {
         let mut prompts = vec![];
         let mut actions = vec![];
 
-        for action in self.state.actions().iter() {
+        for action in self.state.actions() {
             if let Some(prompt) = self.prompt_for(action) {
                 prompts.push(prompt);
                 actions.push(action);
@@ -401,19 +394,21 @@ impl Resolver<'_> {
             self.action = match selection {
                 0 => Some(Action::Replace(replacement)),
                 1 => Some(Action::Cancel),
-                2 => Some(Action::Customize(replacement.new_file_stem.clone())),
+                2 => Some(Action::Customize(replacement.new_file_stem)),
                 _ => None,
             }
         }
     }
 
-    fn prompt_for(&self, action: &Action) -> Option<&'static str> {
+    const fn prompt_for(&self, action: &Action) -> Option<&'static str> {
         match action {
             Action::Accept => Some("Yes, accept the rename and continue"),
             Action::Always => Some("Always accept similar rename and continue"),
             Action::Customize(_) => Some("Customize the rename"),
             Action::ViewAlternatives => Some("View other possibilities"),
-            Action::Replace(_) => None,
+            Action::Replace(_)
+            | Action::Cancel
+            | Action::ConfirmCustomization => None,
             Action::Skip => Some("Skip renaming this file"),
             Action::Refuse => {
                 if let Current::Confirm(_) = self.state.current() {
@@ -424,8 +419,6 @@ impl Resolver<'_> {
             }
             Action::Ignore => Some("Ignore all similar rename and continue"),
             Action::Abort => Some("Quit now, refusing this rename"),
-            Action::Cancel => None,
-            Action::ConfirmCustomization => None,
         }
     }
 }

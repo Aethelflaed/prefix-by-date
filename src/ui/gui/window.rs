@@ -39,7 +39,10 @@ enum ProcessingState {
 
 impl Window {
     fn execute(&mut self, action: Action) -> Task<Message> {
-        use Action::*;
+        use Action::{
+            Abort, Accept, Always, Cancel, ConfirmCustomization, Customize,
+            Ignore, Refuse, Replace, Skip, ViewAlternatives,
+        };
 
         match action {
             Customize(file_stem) => {
@@ -47,13 +50,12 @@ impl Window {
 
                 iced::widget::text_input::focus(CUSTOMIZE_INPUT_ID.clone())
             }
-            ConfirmCustomization => {
-                if let Some(rep) = self.state.customized_replacement() {
+            ConfirmCustomization => self
+                .state
+                .customized_replacement()
+                .map_or_else(Task::none, |rep| {
                     self.send_confirmation(Confirmation::Replace(rep))
-                } else {
-                    Task::none()
-                }
-            }
+                }),
             Accept => self.send_confirmation(Confirmation::Accept),
             Always => self.send_confirmation(Confirmation::Always),
             Skip => self.send_confirmation(Confirmation::Skip),
@@ -80,7 +82,7 @@ impl Window {
                 async move {
                     connection.send_async(conf).await;
                 },
-                |_| Message::Idle,
+                |()| Message::Idle,
             );
         }
 
@@ -91,16 +93,18 @@ impl Window {
         &mut self,
         event: processing::Event,
     ) -> Task<Message> {
-        use processing::Event::*;
+        use processing::Event::{
+            Aborted, Confirm, Finished, Initialization, Processing,
+            ProcessingErr, ProcessingOk, Ready, Rescue,
+        };
+        use processing::InitializationData::{Done, Matchers, Paths};
 
-        log::debug!("Processing event: {:?}", event);
+        log::debug!("Processing event: {event:?}");
 
         match event {
             Initialization(mut connection) => {
                 let matchers = self.matchers.clone();
                 let paths = self.paths.clone();
-
-                use processing::InitializationData::*;
 
                 return Task::perform(
                     async move {
@@ -108,7 +112,7 @@ impl Window {
                         connection.send_async(Paths(paths)).await;
                         connection.send_async(Done).await;
                     },
-                    |_| Message::Idle,
+                    |()| Message::Idle,
                 );
             }
             Ready(connection) => {
@@ -146,7 +150,7 @@ impl Window {
     ) -> (Self, Task<Message>) {
         let len = paths.len();
         (
-            Window {
+            Self {
                 matchers,
                 paths,
                 processing_state: ProcessingState::default(),
@@ -158,6 +162,7 @@ impl Window {
         )
     }
 
+    #[allow(clippy::unused_self)]
     pub fn title(&self) -> String {
         String::from("Prefix by date")
     }
@@ -182,24 +187,21 @@ impl Window {
             }
             Message::MaybeShortcut(key_code) => {
                 let predicate = |action: &&Action| {
-                    if let Some(code) = iced_shortcut_for(action) {
-                        key_code == code
-                    } else {
-                        false
-                    }
+                    iced_shortcut_for(action)
+                        .is_some_and(|code| key_code == code)
                 };
 
-                if let Some(action) =
-                    self.state.actions().iter().find(predicate).cloned()
-                {
-                    self.execute(action)
-                } else {
-                    Task::none()
-                }
+                self.state
+                    .actions()
+                    .iter()
+                    .find(predicate)
+                    .cloned()
+                    .map_or_else(Task::none, |action| self.execute(action))
             }
         }
     }
 
+    #[allow(clippy::unused_self)]
     pub fn subscription(&self) -> Subscription<Message> {
         Subscription::batch(vec![
             Subscription::run(processing::connect).map(Message::Processing),
@@ -207,6 +209,7 @@ impl Window {
         ])
     }
 
+    #[allow(clippy::cast_precision_loss)]
     pub fn view(&self) -> Element<'_, Message> {
         use iced::widget::{column, container, progress_bar, row, text, Row};
 
@@ -313,15 +316,16 @@ impl Window {
         content
     }
 
-    pub fn theme(&self) -> Theme {
+    #[allow(clippy::unused_self)]
+    pub const fn theme(&self) -> Theme {
         Theme::Dark
     }
 }
 
-use once_cell::sync::Lazy;
-static CUSTOMIZE_INPUT_ID: Lazy<iced::widget::text_input::Id> =
-    Lazy::new(iced::widget::text_input::Id::unique);
+static CUSTOMIZE_INPUT_ID: std::sync::LazyLock<iced::widget::text_input::Id> =
+    std::sync::LazyLock::new(iced::widget::text_input::Id::unique);
 
+#[allow(clippy::needless_pass_by_value)]
 fn handle_hotkey(key_code: Key, modifiers: Modifiers) -> Option<Message> {
     let key_code = key_code.as_ref();
 
@@ -360,8 +364,7 @@ fn scrollable_logs(
         column(
             logs.iter()
                 .rev()
-                .cloned()
-                .map(|result| result.to_string())
+                .map(std::string::ToString::to_string)
                 .map(text)
                 .map(Element::from),
         )
@@ -389,19 +392,19 @@ fn customize(string: &str) -> Element<'_, Message> {
         .into()
 }
 
-fn iced_shortcut_for(action: &Action) -> Option<Key<&'static str>> {
+const fn iced_shortcut_for(action: &Action) -> Option<Key<&'static str>> {
     match action {
         Action::Accept => Some(Key::<&str>::Character("y")),
         Action::Always => Some(Key::<&str>::Character("a")),
         Action::Customize(_) => Some(Key::<&str>::Character("c")),
-        Action::ViewAlternatives => None,
-        Action::Replace(_) => None,
+        Action::ViewAlternatives
+        | Action::Replace(_)
+        | Action::Cancel
+        | Action::ConfirmCustomization => None,
         Action::Skip => Some(Key::<&str>::Character("s")),
         Action::Refuse => Some(Key::<&str>::Character("r")),
         Action::Ignore => Some(Key::<&str>::Character("i")),
         Action::Abort => Some(Key::<&str>::Character("q")),
-        Action::Cancel => None,
-        Action::ConfirmCustomization => None,
     }
 }
 
